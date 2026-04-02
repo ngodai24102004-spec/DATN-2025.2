@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. Phân loại vai trò người dùng
+enum Role {
+  SUPER_ADMIN    // Quản lý tất cả tòa nhà
+  BUILDING_ADMIN // Chỉ quản lý tòa nhà được giao
+}
+
+// 2. Bảng Tòa nhà
+model Building {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(50) // VD: BUILDING_01, BUILDING_02
+  name        String   @db.VarChar(100)
+  address     String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+
+  // Quan hệ: Một tòa nhà có nhiều thiết bị, nhiều người quản lý
+  devices     Device[]
+  managers    UserBuilding[]
+
+  @@map("buildings")
+}
+
+// 3. Bảng Người dùng
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique @db.VarChar(50)
+  password  String   @db.VarChar(255)
+  fullName  String?  @db.VarChar(100)
+  role      Role     @default(BUILDING_ADMIN)
+  createdAt DateTime @default(now())
+
+  // Quan hệ: Một người dùng có thể quản lý nhiều tòa nhà (thường là 1)
+  managedBuildings UserBuilding[]
+  ControlLogs      ControlLog[]
+
+  @@map("users")
+}
+
+// 4. Bảng trung gian kết nối Người dùng và Tòa nhà (Phân quyền quản lý)
+model UserBuilding {
+  userId     Int
+  buildingId Int
+  user       User     @relation(fields: [userId], references: [id])
+  building   Building @relation(fields: [buildingId], references: [id])
+
+  @@id([userId, buildingId])
+  @@map("user_buildings")
+}
+
+// 5. Bảng thiết bị (Chiller, Bơm, Van thuộc về tòa nhà)
+model Device {
+  id           Int      @id @default(autoincrement())
+  buildingId   Int      // Khóa ngoại liên kết tới tòa nhà
+  code         String   @unique @db.VarChar(50)
+  name         String?  @db.VarChar(100)
+  type         String   @db.VarChar(50) // CHILLER, PUMP, VALVE...
+  latest_state Json?
+  last_updated DateTime @default(now()) @updatedAt
+
+  building     Building @relation(fields: [buildingId], references: [id])
+  ControlLogs  ControlLog[]
+
+  @@map("devices")
+}
+
+// 6. Bảng lịch sử điều khiển
+model ControlLog {
+  id              Int       @id @default(autoincrement())
+  device_code     String    @db.VarChar(50)
+  user_id         Int       // Người thực hiện lệnh (Building Admin hoặc Super Admin)
+  command_payload Json
+  status          String    @default("PENDING") @db.VarChar(20)
+  created_at      DateTime  @default(now())
+  completed_at    DateTime?
+
+  device          Device    @relation(fields: [device_code], references:[code])
+  user            User      @relation(fields: [user_id], references: [id])
+
+  @@map("control_logs")
+}
