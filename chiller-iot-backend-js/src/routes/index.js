@@ -1,6 +1,6 @@
 import express from 'express';
 import authRoutes from './auth.routes.js';
-import deviceRoutes from './device.routes.js'; // Sau này bạn sẽ dùng đến
+import deviceRoutes from './device.routes.js'; 
 
 const router = express.Router();
 
