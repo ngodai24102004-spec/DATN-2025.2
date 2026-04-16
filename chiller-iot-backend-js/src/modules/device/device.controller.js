@@ -1,10 +1,10 @@
 import prisma from '../../config/prisma.js';
 
 export const DeviceController = {
-    // API: Thêm thiết bị mới vào tòa nhà
+    // 1. API: Thêm thiết bị mới vào tòa nhà
     addDevice: async (req, res) => {
         try {
-            const { buildingId, code, type, name } = req.body;
+            const { buildingId, code, type, name, location } = req.body;
             const user = req.user; // Lấy từ authMiddleware (id, role, buildingId)
 
             // 1. Kiểm tra quyền hạn
@@ -35,6 +35,7 @@ export const DeviceController = {
                     code: code,
                     type: type.toUpperCase(),
                     name: name || `${type} ${code}`,
+                    location: location || null,
                     buildingId: parseInt(buildingId),
                     latest_state: {} // Khởi tạo trạng thái rỗng
                 }
@@ -50,5 +51,47 @@ export const DeviceController = {
         }
     },
 
-    // Các hàm getDevices, getHistory... giữ nguyên như đã bàn
+    // 2. API: Lấy danh sách thiết bị có phân quyền
+    getDevices: async (req, res) => {
+        try {
+            // Thông tin user lấy từ Token sau khi qua Middleware verifyToken
+            const { role, buildingId, id: userId } = req.user;
+            let devices = [];
+
+            // TRƯỜNG HỢP 1: Nếu là Admin Tổng -> Lấy toàn bộ thiết bị
+            if (role === 'SUPER_ADMIN') {
+                devices = await prisma.device.findMany({
+                    include: {
+                        building: true // Lấy kèm thông tin tòa nhà để hiển thị tên nhà
+                    },
+                    orderBy: {
+                        type: 'asc' // Sắp xếp theo loại thiết bị cho dễ nhìn
+                    }
+                });
+            }
+
+            // TRƯỜNG HỢP 2: Nếu là Admin Tòa nhà -> Chỉ lấy thiết bị của nhà mình
+            else if (role === 'BUILDING_ADMIN') {
+                // Chúng ta query dựa trên buildingId đã được gán cho User này
+                devices = await prisma.device.findMany({
+                    where: {
+                        buildingId: buildingId
+                    },
+                    include: {
+                        building: true
+                    },
+                    orderBy: {
+                        type: 'asc'
+                    }
+                });
+            }
+
+            res.status(200).json(devices);
+
+        } catch (error) {
+            console.error("❌ Lỗi lấy danh sách thiết bị:", error.message);
+            res.status(500).json({ error: "Lỗi hệ thống khi lấy dữ liệu" });
+        }
+    }
+
 };

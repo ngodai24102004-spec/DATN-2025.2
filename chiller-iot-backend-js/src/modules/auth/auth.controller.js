@@ -3,70 +3,84 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 export const AuthController = {
-    // 1.API: Đăng ký Quản lý kèm theo Khởi tạo Tòa nhà mới
-    registerWithBuilding: async (req, res) => {
+    // 1.API: Đăng ký 
+    register: async (req, res) => {
         try {
             const {
-                username, password, fullName,
-                buildingName, buildingCode, address
+                username, password, fullName, role, // Thông tin chung
+                buildingName, buildingCode, address   // Thông tin riêng cho BUILDING_ADMIN
             } = req.body;
 
-            // 1. Kiểm tra username đã tồn tại chưa
+            // 1. Kiểm tra Role có hợp lệ không
+            if (!['SUPER_ADMIN', 'BUILDING_ADMIN'].includes(role)) {
+                return res.status(400).json({ message: "Vai trò (role) bắt buộc phải là SUPER_ADMIN hoặc BUILDING_ADMIN" });
+            }
+
+            // 2. Kiểm tra xem username đã tồn tại chưa
             const userExist = await prisma.user.findUnique({ where: { username } });
             if (userExist) return res.status(400).json({ message: "Username này đã được sử dụng" });
-
-            // 2. Kiểm tra Building Code đã tồn tại chưa (tránh trùng mã tòa nhà)
-            const buildingExist = await prisma.building.findUnique({ where: { code: buildingCode } });
-            if (buildingExist) return res.status(400).json({ message: "Mã tòa nhà (Building Code) đã tồn tại" });
 
             // 3. Mã hóa mật khẩu
             const hashedPassword = await bcrypt.hash(password, 10);
 
-            // 4. Sử dụng Transaction để đảm bảo tính toàn vẹn dữ liệu
-            const result = await prisma.$transaction(async (tx) => {
-
-                // Bước A: Khởi tạo Tòa nhà mới
-                const newBuilding = await tx.building.create({
-                    data: {
-                        name: buildingName,
-                        code: buildingCode,
-                        address: address || ""
-                    }
+            // ==========================================
+            // KỊCH BẢN 1: NẾU TẠO SUPER_ADMIN
+            // ==========================================
+            if (role === 'SUPER_ADMIN') {
+                const newUser = await prisma.user.create({
+                    data: { username, password: hashedPassword, fullName, role: 'SUPER_ADMIN' }
                 });
-
-                // Bước B: Tạo User với quyền BUILDING_ADMIN
-                const newUser = await tx.user.create({
-                    data: {
-                        username,
-                        password: hashedPassword,
-                        fullName,
-                        role: 'BUILDING_ADMIN'
-                    }
+                return res.status(201).json({
+                    message: "Tạo tài khoản Quản trị viên Tổng (SUPER_ADMIN) thành công!",
+                    data: { username: newUser.username, role: newUser.role, fullName: newUser.fullName }
                 });
+            }
 
-                // Bước C: Gán User vừa tạo làm Quản lý cho Tòa nhà vừa tạo
-                await tx.userBuilding.create({
-                    data: {
-                        userId: newUser.id,
-                        buildingId: newBuilding.id
-                    }
-                });
-
-                return { user: newUser, building: newBuilding };
-            });
-
-            res.status(201).json({
-                message: "Khởi tạo Tòa nhà và cấp quyền Quản lý thành công!",
-                data: {
-                    username: result.user.username,
-                    buildingName: result.building.name,
-                    buildingId: result.building.id // Sau này dùng ID này để thêm Chiller
+            // ==========================================
+            // KỊCH BẢN 2: NẾU TẠO BUILDING_ADMIN
+            // ==========================================
+            if (role === 'BUILDING_ADMIN') {
+                // Ép buộc phải nhập thông tin tòa nhà
+                if (!buildingCode || !buildingName) {
+                    return res.status(400).json({ message: "Cần cung cấp buildingName và buildingCode để tạo Admin Tòa nhà" });
                 }
-            });
+
+                // Kiểm tra mã tòa nhà xem có bị trùng không
+                const buildingExist = await prisma.building.findUnique({ where: { code: buildingCode } });
+                if (buildingExist) return res.status(400).json({ message: "Mã tòa nhà (Building Code) đã tồn tại" });
+
+                // Dùng Transaction để tạo đồng thời Tòa nhà và User
+                const result = await prisma.$transaction(async (tx) => {
+                    const newBuilding = await tx.building.create({
+                        data: { name: buildingName, code: buildingCode, address: address || "" }
+                    });
+
+                    const newUser = await tx.user.create({
+                        data: { username, password: hashedPassword, fullName, role: 'BUILDING_ADMIN' }
+                    });
+
+                    // Cấp quyền quản lý nhà này cho user
+                    await tx.userBuilding.create({
+                        data: { userId: newUser.id, buildingId: newBuilding.id }
+                    });
+
+                    return { user: newUser, building: newBuilding };
+                });
+
+                return res.status(201).json({
+                    message: "Khởi tạo Tòa nhà và cấp quyền BUILDING_ADMIN thành công!",
+                    data: {
+                        username: result.user.username,
+                        role: result.user.role,
+                        buildingName: result.building.name,
+                        buildingId: result.building.id
+                    }
+                });
+            }
 
         } catch (error) {
             console.error(error);
-            res.status(500).json({ error: "Lỗi hệ thống khi khởi tạo" });
+            res.status(500).json({ error: "Lỗi hệ thống khi đăng ký" });
         }
     },
 
@@ -106,5 +120,44 @@ export const AuthController = {
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
+    },
+
+    // API Lấy thông tin cá nhân
+    getProfile: async (req, res) => {
+        try {
+            // Kiểm tra xem middleware verifyToken đã gán user vào req chưa
+            if (!req.user || !req.user.id) {
+                return res.status(401).json({ message: "Không xác định được người dùng" });
+            }
+
+            const userId = req.user.id;
+
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true,
+                    username: true,
+                    fullName: true,
+                    role: true,
+                    createdAt: true,
+                    managedBuildings: {
+                        include: {
+                            building: true
+                        }
+                    }
+                }
+            });
+
+            if (!user) {
+                return res.status(404).json({ message: "Người dùng không tồn tại trong hệ thống" });
+            }
+
+            res.json(user);
+        } catch (error) {
+            // Dòng này sẽ in lỗi chi tiết ra màn hình đen (Backend Terminal) của bạn
+            console.error("❌ Lỗi API Profile:", error);
+            res.status(500).json({ error: "Lỗi hệ thống khi lấy thông tin cá nhân" });
+        }
     }
+
 };

@@ -61,6 +61,7 @@ model Device {
   buildingId   Int      // Khóa ngoại liên kết tới tòa nhà
   code         String   @unique @db.VarChar(50)
   name         String?  @db.VarChar(100)
+  location     String?  @db.VarChar(255)
   type         String   @db.VarChar(50) // CHILLER, PUMP, VALVE...
   latest_state Json?
   last_updated DateTime @default(now()) @updatedAt
