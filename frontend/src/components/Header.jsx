@@ -174,6 +174,14 @@ const Header = () => {
                             >
                                 Đóng
                             </button>
+                            <button className="rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors px-4 py-2 text-sm font-bold ml-3"
+                                onClick={() => {
+                                    localStorage.removeItem('token');
+                                    window.location.href = '/login';
+                                }}
+                            >
+                                Đăng xuất
+                            </button>
                         </div>
                     </div>
                 </div>

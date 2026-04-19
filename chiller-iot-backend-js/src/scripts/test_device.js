@@ -22,8 +22,14 @@ client.on('connect', () => {
             {
                 "code": "chiller-001",
                 "power": Math.random() > 0.3 ? 1 : 0, // 70% cơ hội là đang chạy
-                "auto-mode": 1,
-                "fault": 0
+                "auto-mode": Math.random() > 0.5 ? 1 : 0, // 50% cơ hội là Auto (Nhãn xanh)
+                "fault": 0,
+            },
+            {
+                "code": "Chiller-002",
+                "power": Math.random() > 0.5 ? 1 : 0, // 50% cơ hội là đang chạy
+                "auto-mode": 1,                       // Chiller 2 chạy Auto (Nhãn xanh)
+                "fault": Math.random() > 0.9 ? 1 : 0  // 10% cơ hội bị lỗi (Để test UI viền Đỏ)
             }
         ];
         client.publish(CHILLER_TOPIC, JSON.stringify(chillerData));
