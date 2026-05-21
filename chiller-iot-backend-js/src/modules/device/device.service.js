@@ -1,7 +1,7 @@
 // src/modules/device/device.service.js
 import prisma from '../../config/prisma.js';
 import { InfluxService } from '../../config/influx.js';
-import { getIo } from '../../config/socket.js'; // THÊM DÒNG NÀY
+import { getIo } from '../../config/socket.js';
 
 export const DeviceService = {
 
@@ -9,15 +9,21 @@ export const DeviceService = {
     handleChillerData: async (chillerList) => {
         for (const item of chillerList) {
             try {
+                // SỬA: Lấy thêm thông tin người quản lý tòa nhà
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
-                    include: { building: true }
+                    include: {
+                        building: {
+                            include: { managers: { include: { user: true } } }
+                        }
+                    }
                 });
 
                 if (!deviceInDb) {
-                    console.log(`⚠️ Thiết bị ${item.code} chưa được khai báo. Bỏ qua.`);
+                    console.log(`⚠️ Thiết bị ${item.code} chưa được khai báo trong MySQL. Bỏ qua.`);
                     continue;
                 }
+
                 await prisma.device.update({
                     where: { code: item.code },
                     data: { latest_state: item, last_updated: new Date() }
@@ -31,13 +37,23 @@ export const DeviceService = {
                 };
                 InfluxService.writeTelemetry("chiller_status", tags, fields);
 
-                // --- PHẦN THÊM MỚI: GỬI SOCKET REAL-TIME ---
-                const io = getIo();
-                io.to(`building-${deviceInDb.buildingId}`).emit("device-update", {
+                // --- SỬA: TẠO GÓI DỮ LIỆU ĐẦY ĐỦ ĐỂ GỬI SOCKET ---
+                const managerName = deviceInDb.building.managers[0]?.user?.fullName || "Chưa bổ nhiệm";
+                const socketPayload = {
                     code: item.code,
                     type: "CHILLER",
-                    latest_state: item
-                });
+                    latest_state: item,
+                    details: {
+                        name: deviceInDb.name,
+                        location: deviceInDb.location || "N/A",
+                        buildingName: deviceInDb.building.name,
+                        managerName: managerName
+                    }
+                };
+
+                const io = getIo();
+                io.to(`building-${deviceInDb.buildingId}`).emit("device-update", socketPayload);
+                io.to("super_admin_room").emit("device-update", socketPayload); // Bắn cho Super Admin
 
                 console.log(`✅ Real-time: Chiller ${item.code} [Nhà: ${deviceInDb.building.code}]`);
 
@@ -53,7 +69,11 @@ export const DeviceService = {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
-                    include: { building: true }
+                    include: {
+                        building: {
+                            include: { managers: { include: { user: true } } }
+                        }
+                    }
                 });
 
                 if (!deviceInDb) continue;
@@ -72,13 +92,23 @@ export const DeviceService = {
                 };
                 InfluxService.writeTelemetry("pipe_telemetry", tags, fields);
 
-                // --- GỬI SOCKET REAL-TIME ---
-                const io = getIo();
-                io.to(`building-${deviceInDb.buildingId}`).emit("device-update", {
+                // --- SOCKET ---
+                const managerName = deviceInDb.building.managers[0]?.user?.fullName || "Chưa bổ nhiệm";
+                const socketPayload = {
                     code: item.code,
                     type: "PIPE",
-                    latest_state: item
-                });
+                    latest_state: item,
+                    details: {
+                        name: deviceInDb.name,
+                        location: deviceInDb.location || "N/A",
+                        buildingName: deviceInDb.building.name,
+                        managerName: managerName
+                    }
+                };
+
+                const io = getIo();
+                io.to(`building-${deviceInDb.buildingId}`).emit("device-update", socketPayload);
+                io.to("super_admin_room").emit("device-update", socketPayload);
 
             } catch (err) {
                 console.error(`❌ Lỗi xử lý Pipe ${item?.code}:`, err.message);
@@ -92,7 +122,11 @@ export const DeviceService = {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
-                    include: { building: true }
+                    include: {
+                        building: {
+                            include: { managers: { include: { user: true } } }
+                        }
+                    }
                 });
                 if (!deviceInDb) continue;
 
@@ -106,12 +140,23 @@ export const DeviceService = {
                     { state: item.state ? 1 : 0 }
                 );
 
-                // --- GỬI SOCKET REAL-TIME ---
-                getIo().to(`building-${deviceInDb.buildingId}`).emit("device-update", {
+                // --- SOCKET ---
+                const managerName = deviceInDb.building.managers[0]?.user?.fullName || "Chưa bổ nhiệm";
+                const socketPayload = {
                     code: item.code,
                     type: "VALVE",
-                    latest_state: item
-                });
+                    latest_state: item,
+                    details: {
+                        name: deviceInDb.name,
+                        location: deviceInDb.location || "N/A",
+                        buildingName: deviceInDb.building.name,
+                        managerName: managerName
+                    }
+                };
+
+                const io = getIo();
+                io.to(`building-${deviceInDb.buildingId}`).emit("device-update", socketPayload);
+                io.to("super_admin_room").emit("device-update", socketPayload);
 
             } catch (err) {
                 console.error(`❌ Lỗi xử lý Valve:`, err.message);
@@ -125,7 +170,11 @@ export const DeviceService = {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
-                    include: { building: true }
+                    include: {
+                        building: {
+                            include: { managers: { include: { user: true } } }
+                        }
+                    }
                 });
                 if (!deviceInDb) continue;
 
@@ -145,12 +194,23 @@ export const DeviceService = {
                     fields
                 );
 
-                // --- GỬI SOCKET REAL-TIME ---
-                getIo().to(`building-${deviceInDb.buildingId}`).emit("device-update", {
+                // --- SOCKET ---
+                const managerName = deviceInDb.building.managers[0]?.user?.fullName || "Chưa bổ nhiệm";
+                const socketPayload = {
                     code: item.code,
                     type: "COLDPUMP",
-                    latest_state: item
-                });
+                    latest_state: item,
+                    details: {
+                        name: deviceInDb.name,
+                        location: deviceInDb.location || "N/A",
+                        buildingName: deviceInDb.building.name,
+                        managerName: managerName
+                    }
+                };
+
+                const io = getIo();
+                io.to(`building-${deviceInDb.buildingId}`).emit("device-update", socketPayload);
+                io.to("super_admin_room").emit("device-update", socketPayload);
 
             } catch (err) {
                 console.error(`❌ Lỗi xử lý ColdPump:`, err.message);
@@ -164,7 +224,11 @@ export const DeviceService = {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
-                    include: { building: true }
+                    include: {
+                        building: {
+                            include: { managers: { include: { user: true } } }
+                        }
+                    }
                 });
                 if (!deviceInDb) continue;
 
@@ -184,12 +248,23 @@ export const DeviceService = {
                     fields
                 );
 
-                // --- GỬI SOCKET REAL-TIME ---
-                getIo().to(`building-${deviceInDb.buildingId}`).emit("device-update", {
+                // --- SOCKET ---
+                const managerName = deviceInDb.building.managers[0]?.user?.fullName || "Chưa bổ nhiệm";
+                const socketPayload = {
                     code: item.code,
                     type: "COOLINGPUMP",
-                    latest_state: item
-                });
+                    latest_state: item,
+                    details: {
+                        name: deviceInDb.name,
+                        location: deviceInDb.location || "N/A",
+                        buildingName: deviceInDb.building.name,
+                        managerName: managerName
+                    }
+                };
+
+                const io = getIo();
+                io.to(`building-${deviceInDb.buildingId}`).emit("device-update", socketPayload);
+                io.to("super_admin_room").emit("device-update", socketPayload);
 
             } catch (err) {
                 console.error(`❌ Lỗi xử lý CoolingPump:`, err.message);
@@ -203,7 +278,11 @@ export const DeviceService = {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
-                    include: { building: true }
+                    include: {
+                        building: {
+                            include: { managers: { include: { user: true } } }
+                        }
+                    }
                 });
                 if (!deviceInDb) continue;
 
@@ -222,12 +301,23 @@ export const DeviceService = {
                     fields
                 );
 
-                // --- GỬI SOCKET REAL-TIME ---
-                getIo().to(`building-${deviceInDb.buildingId}`).emit("device-update", {
+                // --- SOCKET ---
+                const managerName = deviceInDb.building.managers[0]?.user?.fullName || "Chưa bổ nhiệm";
+                const socketPayload = {
                     code: item.code,
                     type: "COOLINGTOWER",
-                    latest_state: item
-                });
+                    latest_state: item,
+                    details: {
+                        name: deviceInDb.name,
+                        location: deviceInDb.location || "N/A",
+                        buildingName: deviceInDb.building.name,
+                        managerName: managerName
+                    }
+                };
+
+                const io = getIo();
+                io.to(`building-${deviceInDb.buildingId}`).emit("device-update", socketPayload);
+                io.to("super_admin_room").emit("device-update", socketPayload);
 
             } catch (err) {
                 console.error(`❌ Lỗi xử lý CoolingTower:`, err.message);

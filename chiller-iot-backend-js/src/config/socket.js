@@ -19,6 +19,11 @@ export const initSocket = (server) => {
             console.log(`🏠 Client ${socket.id} joined building room: ${buildingId}`);
         });
 
+        socket.on("join-super-admin", () => {
+            socket.join("super_admin_room");
+            console.log(`👑 Super Admin ${socket.id} joined global room!`);
+        });
+
         socket.on("disconnect", () => {
             console.log("❌ Client disconnected");
         });

@@ -8,7 +8,8 @@ import {
     LogOut,
     Building2,
     ChevronRight,
-    ShieldCheck
+    ShieldCheck,
+    Sliders
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -20,15 +21,24 @@ const Sidebar = () => {
         navigate('/login');
     };
 
-    const menuItems = [
-        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        { name: 'Lịch sử dữ liệu', path: '/history', icon: History },
-        { name: 'Cài đặt hệ thống', path: '/settings', icon: Settings },
-    ];
+    // ==========================================
+    // LOGIC PHÂN QUYỀN HIỂN THỊ MENU SIDEBAR
+    // ==========================================
+    let menuItems = [];
 
-    // Nếu là Super Admin thì hiện thêm menu quản lý nhà
     if (user?.role === 'SUPER_ADMIN') {
-        menuItems.push({ name: 'Quản lý Tòa nhà', path: '/admin', icon: ShieldCheck });
+        // 1. NẾU LÀ SUPER ADMIN: Chỉ hiển thị menu Quản lý hệ thống
+        menuItems = [
+            { name: 'Quản lý Tòa nhà', path: '/admin', icon: ShieldCheck }
+        ];
+    } else {
+        // 2. NẾU LÀ BUILDING ADMIN: Hiển thị các menu vận hành trạm
+        menuItems = [
+            { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+            { name: 'Lịch sử dữ liệu', path: '/history', icon: History },
+            { name: 'Bảng Điều khiển', path: '/control', icon: Sliders },
+            { name: 'Cài đặt hệ thống', path: '/settings', icon: Settings },
+        ];
     }
 
     return (

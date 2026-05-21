@@ -122,7 +122,7 @@ export const AuthController = {
         }
     },
 
-    // API Lấy thông tin cá nhân
+    // 3. API Lấy thông tin cá nhân
     getProfile: async (req, res) => {
         try {
             // Kiểm tra xem middleware verifyToken đã gán user vào req chưa
@@ -158,6 +158,36 @@ export const AuthController = {
             console.error("❌ Lỗi API Profile:", error);
             res.status(500).json({ error: "Lỗi hệ thống khi lấy thông tin cá nhân" });
         }
-    }
+    },
 
+    // 4. API Cập nhật tên hiển thị
+    updateProfileName: async (req, res) => {
+        try {
+            const { fullName } = req.body;
+            const userId = req.user.id; // Lấy từ Token
+
+            if (!fullName || fullName.trim() === "") {
+                return res.status(400).json({ message: "Tên không được để trống" });
+            }
+
+            const updatedUser = await prisma.user.update({
+                where: { id: userId },
+                data: { fullName: fullName.trim() },
+                select: {
+                    id: true,
+                    fullName: true,
+                    username: true,
+                    role: true
+                }
+            });
+
+            res.json({
+                message: "Cập nhật tên thành công",
+                user: updatedUser
+            });
+        } catch (error) {
+            console.error("❌ Lỗi Update Name:", error);
+            res.status(500).json({ error: "Lỗi hệ thống khi cập nhật tên" });
+        }
+    }
 };

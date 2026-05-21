@@ -7,7 +7,7 @@ const MainLayout = ({ children }) => {
             <Sidebar />
             <div className="flex flex-col">
                 <Header />
-                <main className="ml-64 p-8">
+                <main className="ml-64 p-8 relative">
                     {children}
                 </main>
             </div>

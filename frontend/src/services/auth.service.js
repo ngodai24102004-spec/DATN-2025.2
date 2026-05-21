@@ -24,3 +24,12 @@ export const getProfileApi = async () => {
     });
     return response.data;
 };
+
+export const updateNameApi = async (fullName) => {
+    const token = localStorage.getItem('token');
+    const response = await axios.put(`${API_URL}/auth/profile/name`,
+        { fullName },
+        { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data;
+};

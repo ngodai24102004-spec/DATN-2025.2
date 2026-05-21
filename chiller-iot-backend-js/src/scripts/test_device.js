@@ -1,7 +1,18 @@
 import mqtt from 'mqtt';
+import dotenv from 'dotenv';
 
-// Kết nối tới Broker công cộng
-const client = mqtt.connect('mqtt://broker.emqx.io:1883');
+dotenv.config();
+
+// Cấu hình tài khoản đăng nhập HiveMQ
+const options = {
+    username: process.env.MQTT_USERNAME,
+    password: process.env.MQTT_PASSWORD,
+    protocolVersion: 4,
+    rejectUnauthorized: true
+};
+
+// Kết nối tới HiveMQ Cloud
+const client = mqtt.connect(process.env.MQTT_BROKER_URL, options);
 
 const CHILLER_TOPIC = 'yoo/yootek/cooling/chiller/chillers/get/response';
 const PIPE_TOPIC = 'yoo/yootek/cooling/chiller/pipes/get/response';
@@ -21,9 +32,9 @@ client.on('connect', () => {
         const chillerData = [
             {
                 "code": "chiller-001",
-                "power": Math.random() > 0.3 ? 1 : 0, // 70% cơ hội là đang chạy
+                "power": 1, // Luôn bật để test UI
                 "auto-mode": Math.random() > 0.5 ? 1 : 0, // 50% cơ hội là Auto (Nhãn xanh)
-                "fault": 0,
+                "fault": Math.random() > 15 ? 1 : 0 // 10% cơ hội bị lỗi (Để test UI viền Đỏ)
             },
             {
                 "code": "Chiller-002",
@@ -68,7 +79,6 @@ client.on('connect', () => {
                 "power": isPumpRunning,
                 "auto-mode": 1,
                 "fault": 0,
-                // Nếu bơm chạy thì random tốc độ từ 35 - 50 Hz, nếu tắt thì speed = 0
                 "speed": isPumpRunning ? (35 + Math.random() * 15).toFixed(1) : 0
             }
         ];
@@ -82,7 +92,7 @@ client.on('connect', () => {
                 "code": "COOLINGPUMP-001",
                 "power": isCoolingPumpRunning,
                 "auto-mode": 1,
-                "fault": 0,
+                "fault": Math.random() > 0.9 ? 1 : 0,
                 // Tốc độ bơm giải nhiệt thường dao động từ 40 - 50 Hz
                 "speed": isCoolingPumpRunning ? (40 + Math.random() * 10).toFixed(1) : 0
             }
