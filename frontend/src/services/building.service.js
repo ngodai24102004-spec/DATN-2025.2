@@ -18,3 +18,19 @@ export const getBuildingByIdApi = async (id) => {
     });
     return response.data;
 };
+// Xóa tòa nhà (Chỉ Super Admin)
+export const deleteBuildingApi = async (id) => {
+    const token = localStorage.getItem('token');
+    const response = await axios.delete(`${API_URL}/buildings/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+// Cập nhật tòa nhà (Chỉ Super Admin)
+export const updateBuildingApi = async (id, data) => {
+    const token = localStorage.getItem('token');
+    const response = await axios.put(`${API_URL}/buildings/${id}`, data, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};

@@ -14,6 +14,7 @@ import { Toaster } from 'react-hot-toast';
 // Super Admin
 import SystemManagement from './pages/SuperAdmin/SystemManagement';
 import BuildingDetail from './pages/SuperAdmin/BuildingDetail';
+import AdminManagement from './pages/SuperAdmin/AdminManagement';
 
 // Gọi hàm kiểm tra đăng nhập khi ứng dụng khởi chạy
 
@@ -96,6 +97,8 @@ function App() {
                 </MainLayout>
               }
             />
+
+            <Route path="/admin/managers" element={<MainLayout><ProtectedRoute requiredRole="SUPER_ADMIN"><AdminManagement /></ProtectedRoute></MainLayout>} />
 
 
             {/* Route fallback cho các đường dẫn không tồn tại */}

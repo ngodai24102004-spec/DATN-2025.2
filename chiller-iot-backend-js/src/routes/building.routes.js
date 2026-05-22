@@ -8,5 +8,9 @@ const router = express.Router();
 router.get('/list', verifyToken, BuildingController.getAllBuildings);
 // Lấy chi tiết 1 tòa nhà kèm thiết bị và người quản lý (Chỉ Super Admin)
 router.get('/:id', verifyToken, BuildingController.getBuildingById);
+// xóa tòa nhà (Chỉ Super Admin)
+router.delete('/:id', verifyToken, BuildingController.deleteBuilding);
+// Cập nhật tòa nhà (Chỉ Super Admin)
+router.put('/:id', verifyToken, BuildingController.updateBuilding);
 
 export default router;

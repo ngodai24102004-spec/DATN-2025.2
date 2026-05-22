@@ -17,6 +17,11 @@ export const loginApi = async (username, password) => {
     }
 };
 
+export const registerApi = async (registerData) => {
+    const response = await axios.post(`${API_URL}/auth/register`, registerData);
+    return response.data;
+};
+
 export const getProfileApi = async () => {
     const token = localStorage.getItem('token');
     const response = await axios.get(`${API_URL}/auth/profile`, {
@@ -31,5 +36,29 @@ export const updateNameApi = async (fullName) => {
         { fullName },
         { headers: { Authorization: `Bearer ${token}` } }
     );
+    return response.data;
+};
+
+export const getBuildingAdminsApi = async () => {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`${API_URL}/auth/building-admins`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+
+export const deleteUserApi = async (id) => {
+    const token = localStorage.getItem('token');
+    const response = await axios.delete(`${API_URL}/auth/users/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+
+export const updateUserApi = async (id, data) => {
+    const token = localStorage.getItem('token');
+    const response = await axios.put(`${API_URL}/auth/users/${id}`, data, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
     return response.data;
 };

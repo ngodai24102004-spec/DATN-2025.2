@@ -1,16 +1,68 @@
-/* src/styles/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* 1. Định nghĩa màu nền chủ đạo */
+:root {
+  --scada-bg: #020617;
+  /* Màu đen xanh cực sâu */
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: #f4f7f6;
-  color: #333;
+  background-color: var(--scada-bg);
+  margin: 0;
+}
+
+/* 2. Tạo họa tiết lưới kỹ thuật mờ */
+.bg-scada-grid {
+  background-image:
+    linear-gradient(to right, rgba(30, 41, 59, 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(30, 41, 59, 0.5) 1px, transparent 1px);
+  background-size: 40px 40px;
+  /* Độ rộng ô lưới */
+}
+
+/* 3. Hiệu ứng kính mờ cho các khối (Glassmorphism) */
+.glass-scada {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* 1. Độ rộng/cao của thanh cuộn */
+::-webkit-scrollbar {
+  width: 8px;
+  /* Độ rộng thanh dọc */
+  height: 6px;
+  /* Độ cao thanh ngang (cái bạn đang bị trắng) */
+}
+
+/* 2. Nền của thanh cuộn (Phần máng chạy) */
+::-webkit-scrollbar-track {
+  background: #020617;
+  /* Khớp với màu nền tối nhất của bạn */
+  border-radius: 10px;
+}
+
+/* 3. Tay kéo thanh cuộn (Cái cục di chuyển) */
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  /* Màu xám xanh tối */
+  border-radius: 10px;
+  border: 1px solid rgba(0, 170, 255, 0.1);
+  /* Viền mờ */
+}
+
+/* 4. Hiệu ứng khi di chuột vào tay kéo (Hiệu ứng Đèn Led) */
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+  /* Màu xanh dương sáng khi hover */
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  /* Hiệu ứng phát sáng nhẹ */
+}
+
+/* Tùy chỉnh cho Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1e293b #020617;
 }

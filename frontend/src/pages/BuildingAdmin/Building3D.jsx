@@ -128,7 +128,7 @@ function CeilingLightMesh({ position }) {
 
 // Mỗi phòng có 6 mesh đèn + 1 PointLight duy nhất ở trung tâm (không castShadow)
 function RoomLighting({ cx, cz, w, d }) {
-    const lightY = -0.8;
+    const lightY = -0.5;
     const cols = 3, rows = 2;
     const meshes = [];
     for (let ci = 0; ci < cols; ci++) {

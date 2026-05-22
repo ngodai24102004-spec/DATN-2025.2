@@ -189,5 +189,116 @@ export const AuthController = {
             console.error("❌ Lỗi Update Name:", error);
             res.status(500).json({ error: "Lỗi hệ thống khi cập nhật tên" });
         }
+    },
+
+    // 5. Lấy danh sách Building Admin (Dành cho Super Admin)
+    getBuildingAdmins: async (req, res) => {
+        try {
+            // Chỉ Super Admin mới được xem danh sách này
+            if (req.user.role !== 'SUPER_ADMIN') {
+                return res.status(403).json({ message: "Bạn không có quyền truy cập!" });
+            }
+
+            const admins = await prisma.user.findMany({
+                where: {
+                    role: 'BUILDING_ADMIN'
+                },
+                select: {
+                    id: true,
+                    username: true,
+                    fullName: true,
+                    createdAt: true,
+                    // Lấy luôn thông tin tòa nhà mà người này đang quản lý
+                    managedBuildings: {
+                        include: {
+                            building: true
+                        }
+                    }
+                },
+                orderBy: {
+                    createdAt: 'desc'
+                }
+            });
+
+            res.status(200).json(admins);
+        } catch (error) {
+            console.error("Lỗi lấy danh sách Admin:", error);
+            res.status(500).json({ error: "Lỗi hệ thống" });
+        }
+    },
+
+    // 6. Xóa tài khoản Building Admin (Dành cho Super Admin)
+    deleteUser: async (req, res) => {
+        try {
+            // 1. Bảo mật: Chỉ Super Admin mới có quyền xóa
+            if (req.user.role !== 'SUPER_ADMIN') {
+                return res.status(403).json({ message: "Không có quyền thực hiện!" });
+            }
+
+            const userId = parseInt(req.params.id);
+
+            // 2. Kiểm tra user có tồn tại không
+            const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+            if (!targetUser) return res.status(404).json({ message: "Người dùng không tồn tại" });
+
+            // 3. Không cho phép Super Admin tự xóa chính mình qua API này
+            if (targetUser.id === req.user.id) {
+                return res.status(400).json({ message: "Bạn không thể tự xóa chính mình!" });
+            }
+
+            // 4. Dùng Transaction để xóa sạch dữ liệu liên quan
+            await prisma.$transaction([
+                // Xóa liên kết người dùng - tòa nhà
+                prisma.userBuilding.deleteMany({ where: { userId: userId } }),
+                // Cuối cùng xóa User
+                prisma.user.delete({ where: { id: userId } })
+            ]);
+
+            res.json({ message: "Đã xóa tài khoản thành công" });
+        } catch (error) {
+            console.error("Lỗi xóa user:", error);
+            res.status(500).json({ error: "Lỗi hệ thống khi xóa người dùng" });
+        }
+    },
+
+    // 7. Cập nhật thông tin tài khoản (Dành cho Super Admin)
+    updateUserByAdmin: async (req, res) => {
+        try {
+            // 1. Chỉ Super Admin mới có quyền
+            if (req.user.role !== 'SUPER_ADMIN') {
+                return res.status(403).json({ message: "Không có quyền thực hiện!" });
+            }
+
+            const userId = parseInt(req.params.id);
+            const { fullName, username, password } = req.body;
+
+            // 2. Kiểm tra user tồn tại
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
+
+            // 3. Kiểm tra trùng username nếu có thay đổi
+            if (username && username !== user.username) {
+                const exist = await prisma.user.findUnique({ where: { username } });
+                if (exist) return res.status(400).json({ message: "Tên đăng nhập này đã bị người khác sử dụng" });
+            }
+
+            // 4. Chuẩn bị dữ liệu cập nhật
+            let updateData = { fullName, username };
+
+            // Nếu admin có nhập mật khẩu mới thì mới tiến hành băm và lưu
+            if (password && password.trim() !== "") {
+                updateData.password = await bcrypt.hash(password, 10);
+            }
+
+            const updated = await prisma.user.update({
+                where: { id: userId },
+                data: updateData
+            });
+
+            res.json({ message: "Cập nhật tài khoản thành công", user: { id: updated.id, username: updated.username } });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ error: "Lỗi hệ thống" });
+        }
     }
 };

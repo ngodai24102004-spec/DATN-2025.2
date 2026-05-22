@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { getDevicesApi, controlDeviceApi } from '../../services/device.service';
-import { Sliders, Power, Settings2, Activity, AlertTriangle, Send } from 'lucide-react';
+import {
+    Power, Settings2, Activity, AlertTriangle, Send,
+    ChevronRight, CheckCircle2, Play, SlidersHorizontal, Snowflake, Droplets, Fan
+} from 'lucide-react';
 import { NotificationContext } from '../../context/NotificationContext';
 import toast from 'react-hot-toast';
 
@@ -11,6 +14,7 @@ export default function ControlPanel() {
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState(null);
 
+    // 1. LẤY DỮ LIỆU VÀ LẮNG NGHE REAL-TIME
     useEffect(() => {
         getDevicesApi().then(data => {
             const controllableDevices = data.filter(d => d.type !== 'PIPE');
@@ -21,7 +25,6 @@ export default function ControlPanel() {
 
     useEffect(() => {
         if (!socket) return;
-
         const handleDeviceUpdate = (payload) => {
             setDevices(prevDevices => prevDevices.map(device => {
                 if (device.code.toLowerCase() === payload.code.toLowerCase()) {
@@ -30,87 +33,65 @@ export default function ControlPanel() {
                 return device;
             }));
         };
-
         socket.on("device-update", handleDeviceUpdate);
         return () => socket.off("device-update", handleDeviceUpdate);
     }, [socket]);
 
-    // HÀM GỬI LỆNH
+    // 2. HÀM XỬ LÝ LỆNH ĐIỀU KHIỂN (Giữ nguyên logic bảo mật)
     const handleSendCommand = (device, commandConfig) => {
-        // Kiểm tra xem máy có đang lỗi không
         const hasFault = device.latest_state?.fault === 1;
 
-        // Dùng toast.custom để vẽ giao diện Popup
         toast.custom((t) => (
-            <div className={`${t.visible ? 'animate-in fade-in zoom-in' : 'animate-out fade-out zoom-out'} max-w-md w-full bg-white shadow-2xl rounded-2xl pointer-events-auto flex flex-col border border-slate-100 overflow-hidden duration-200`}>
-
-                {/* Header của Popup thay đổi màu theo trạng thái lỗi */}
-                <div className={`p-6 flex items-start gap-4 ${hasFault ? 'bg-red-50/50' : ''}`}>
-                    <div className={`p-3 rounded-2xl shadow-inner mt-1 ${hasFault ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+            <div className={`${t.visible ? 'animate-in fade-in zoom-in' : 'animate-out fade-out zoom-out'} max-w-md w-full bg-slate-900 shadow-2xl rounded-2xl pointer-events-auto flex flex-col border border-slate-700 overflow-hidden duration-200`}>
+                <div className={`p-6 flex items-start gap-4 ${hasFault ? 'bg-red-950/50' : 'bg-blue-950/30'}`}>
+                    <div className={`p-3 rounded-2xl shadow-inner mt-1 ${hasFault ? 'bg-red-500/20 text-red-500' : 'bg-blue-500/20 text-blue-400'}`}>
                         {hasFault ? <AlertTriangle size={24} /> : <Send size={24} />}
                     </div>
                     <div className="flex-1">
-                        <h3 className={`font-black text-lg uppercase tracking-tight ${hasFault ? 'text-red-700' : 'text-slate-800'}`}>
+                        <h3 className={`font-black text-lg uppercase tracking-tight ${hasFault ? 'text-red-500' : 'text-slate-100'}`}>
                             {hasFault ? 'CẢNH BÁO NGUY HIỂM' : 'Xác nhận gửi lệnh'}
                         </h3>
-                        <p className="text-slate-600 text-sm mt-2 leading-relaxed">
+                        <p className="text-slate-400 text-sm mt-2 leading-relaxed">
                             {hasFault ? (
-                                <>Thiết bị <span className="font-bold text-red-600">{device.code}</span> đang báo <b className="text-red-600">SỰ CỐ</b>. Việc cố tình gửi lệnh có thể gây hỏng hóc thiết bị vật lý.<br /><br />Bạn vẫn muốn tiếp tục?</>
+                                <>Thiết bị <span className="font-bold text-red-400">{device.code}</span> đang báo sự cố. Việc cố tình gửi lệnh có thể gây hỏng hóc.<br /><br />Tiếp tục?</>
                             ) : (
-                                <>Xác nhận truyền lệnh điều khiển MQTT xuống thiết bị <span className="font-bold text-blue-600">{device.code}</span>?</>
+                                <>Xác nhận truyền lệnh MQTT xuống thiết bị <span className="font-bold text-blue-400">{device.code}</span>?</>
                             )}
                         </p>
                     </div>
                 </div>
-
-                {/* Khu vực nút bấm */}
-                <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
-                    <button
-                        onClick={() => toast.dismiss(t.id)}
-                        className="px-5 py-2.5 text-slate-500 hover:bg-white border border-transparent hover:border-slate-200 rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
-                    >
+                <div className="bg-slate-950 px-6 py-4 flex justify-end gap-3 border-t border-slate-800">
+                    <button onClick={() => toast.dismiss(t.id)} className="px-5 py-2.5 text-slate-400 hover:text-white rounded-xl text-xs font-bold transition-colors uppercase tracking-wider">
                         Hủy
                     </button>
                     <button
                         onClick={async () => {
-                            toast.dismiss(t.id); // Đóng popup
-                            setProcessingId(device.id); // Đổi nút thành "ĐANG GỬI LỆNH..."
+                            toast.dismiss(t.id);
+                            setProcessingId(device.id);
                             try {
-                                await controlDeviceApi({
-                                    deviceId: device.id,
-                                    code: device.code,
-                                    type: device.type,
-                                    command: commandConfig
-                                });
+                                await controlDeviceApi({ deviceId: device.id, code: device.code, type: device.type, command: commandConfig });
                                 toast.success(`Đã gửi lệnh xuống ${device.code}!`);
-                            } catch (error) {
-                                toast.error(error.message || "Gửi lệnh thất bại");
-                            } finally {
-                                setProcessingId(null);
-                            }
+                            } catch (error) { toast.error(error.message || "Gửi lệnh thất bại"); }
+                            finally { setProcessingId(null); }
                         }}
-                        // Màu nút đổi thành Đỏ nếu có lỗi, Xanh nếu bình thường
-                        className={`px-5 py-2.5 text-white rounded-xl text-xs font-black shadow-lg transition-all uppercase tracking-wider ${hasFault ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
-                            }`}
+                        className={`px-5 py-2.5 text-white rounded-xl text-xs font-black shadow-lg transition-all uppercase tracking-wider flex items-center gap-2 ${hasFault ? 'bg-red-600 hover:bg-red-700 shadow-red-900/50' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/50'}`}
                     >
-                        {hasFault ? 'VẪN THỰC THI' : 'THỰC THI'}
+                        <Play size={14} fill="currentColor" /> {hasFault ? 'VẪN THỰC THI' : 'THỰC THI'}
                     </button>
                 </div>
             </div>
-        ), { duration: Infinity }); // Giữ popup trên màn hình cho đến khi user chọn
+        ), { duration: Infinity });
     };
 
     // ==========================================
-    // COMPONENT THẺ ĐIỀU KHIỂN
+    // 3. ROW THIẾT BỊ NẰM NGANG (Giống ảnh mẫu)
     // ==========================================
-    const ControlCard = ({ device }) => {
+    const DeviceRow = ({ device }) => {
         const state = device.latest_state || {};
 
         const originalPower = device.type === 'VALVE' ? state.state === 1 : state.power === 1;
         const originalAuto = (state['auto-mode'] === 1) || (state.auto_mode === 1);
-        const originalSpeed = state.speed || 0;
-
-        // KIỂM TRA LỖI
+        const originalSpeed = parseFloat(state.speed) || 0;
         const hasFault = state.fault === 1;
 
         const [power, setPower] = useState(originalPower);
@@ -123,115 +104,160 @@ export default function ControlPanel() {
             setSpeed(originalSpeed);
         }, [originalPower, originalAuto, originalSpeed]);
 
-        const isPump = device.type.includes('PUMP');
-        const isChiller = device.type === 'CHILLER';
-        const isValve = device.type === 'VALVE';
-
-        // GIAO DIỆN LỖI ĐỘNG
-        const cardBorder = hasFault ? 'border-red-400 bg-red-50/30 shadow-red-100' : 'border-slate-200 bg-white hover:shadow-md';
-        const dotColor = hasFault ? 'bg-red-500' : originalPower ? 'bg-emerald-500' : 'bg-slate-300';
-        const pingColor = hasFault ? 'bg-red-400' : originalPower ? 'bg-emerald-400' : 'bg-slate-400';
+        // Giả lập ảnh đại diện thiết bị (Nếu bạn có ảnh PNG tách nền, hãy thay link vào đây)
+        const getDeviceImage = () => {
+            if (device.type === 'CHILLER') return "https://vietnamcleanroom.com/vcr-media/22/11/1/chiller.jpg";
+            if (device.type.includes('PUMP')) return "https://tank.vn/tank/2024/03/taoanhdep-lam-net-anh-45715.jpg.webp";
+            if (device.type === 'COOLINGTOWER') return "https://tse3.mm.bing.net/th/id/OIP.qZal1kvytXbvwpMiN6t1MgHaEK?rs=1&pid=ImgDetMain&o=7&rm=3";
+            return "https://www.scy-fan.net/wp-content/uploads/sites/69/2023/12/12-major-valves-for-HVAC-systems3.jpg";
+        };
 
         return (
-            <div className={`p-6 rounded-3xl border shadow-sm transition-all relative overflow-hidden ${cardBorder}`}>
+            <div className="flex flex-col md:flex-row items-center gap-6 p-4 bg-slate-900/40 hover:bg-slate-800/60 border border-slate-700/50 rounded-2xl transition-all mb-3 relative overflow-hidden group">
 
-                {/* THANH CẢNH BÁO LỖI NẰM NGANG TRÊN CÙNG */}
-                {hasFault && (
-                    <div className="absolute top-0 left-0 w-full bg-red-500 text-white text-[10px] font-black uppercase tracking-widest py-1 flex justify-center items-center gap-2 animate-pulse">
-                        <AlertTriangle size={12} /> ĐANG BÁO SỰ CỐ
-                    </div>
-                )}
+                {/* Viền báo lỗi */}
+                {hasFault && <div className="absolute left-0 top-0 w-1 h-full bg-red-500 shadow-[0_0_15px_#ef4444]"></div>}
 
-                <div className={`flex justify-between items-center border-b pb-4 mb-4 ${hasFault ? 'mt-4 border-red-200' : 'border-slate-100'}`}>
-                    <div>
-                        <h3 className={`font-black text-lg ${hasFault ? 'text-red-700' : 'text-slate-800'}`}>{device.code}</h3>
-                        <p className={`text-[10px] uppercase font-bold tracking-widest ${hasFault ? 'text-red-400' : 'text-slate-400'}`}>{device.type}</p>
-                    </div>
-                    {/* Chấm trạng thái */}
-                    <span className="flex h-3 w-3 relative">
-                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${pingColor}`}></span>
-                        <span className={`relative inline-flex rounded-full h-3 w-3 ${dotColor}`}></span>
-                    </span>
+                {/* CỘT 1: ẢNH THIẾT BỊ */}
+                <div className="w-full md:w-32 h-20 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shrink-0 relative flex items-center justify-center">
+                    <img src={getDeviceImage()} alt="device" className="w-full h-full object-cover opacity-60 mix-blend-luminosity group-hover:scale-110 transition-transform duration-700" />
+                    {hasFault && <AlertTriangle className="absolute text-red-500 animate-pulse" size={28} />}
                 </div>
 
-                <div className="space-y-6">
-                    {/* CÔNG TẮC NGUỒN */}
-                    <div className="flex items-center justify-between">
-                        <span className={`text-sm font-bold flex items-center gap-2 ${hasFault ? 'text-red-700' : 'text-slate-700'}`}>
-                            <Power size={16} className={power ? (hasFault ? 'text-red-500' : 'text-emerald-500') : 'text-slate-400'} />
-                            {isValve ? 'Trạng thái Van' : 'Nguồn cấp (Power)'}
-                        </span>
-                        <button
-                            onClick={() => setPower(!power)}
-                            className={`w-14 h-7 rounded-full relative transition-colors duration-300 shadow-inner ${power ? (hasFault ? 'bg-red-500' : 'bg-emerald-500') : 'bg-slate-300'}`}
-                        >
-                            <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-transform duration-300 ${power ? 'translate-x-8' : 'translate-x-1'}`}></div>
-                        </button>
-                    </div>
-
-                    {/* CÔNG TẮC AUTO/MANUAL */}
-                    {isChiller && (
-                        <div className="flex items-center justify-between">
-                            <span className={`text-sm font-bold flex items-center gap-2 ${hasFault ? 'text-red-700' : 'text-slate-700'}`}>
-                                <Settings2 size={16} className={autoMode ? 'text-blue-500' : 'text-slate-400'} />
-                                Chế độ (Auto/Man)
+                {/* CỘT 2: THÔNG TIN CƠ BẢN */}
+                <div className="w-full md:w-48 shrink-0 flex flex-col justify-center">
+                    <div className="flex items-center gap-3 mb-1">
+                        <h4 className={`font-black text-sm tracking-wide ${hasFault ? 'text-red-400' : 'text-slate-200'}`}>{device.code}</h4>
+                        <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800">
+                            <span className={`text-[8px] font-bold uppercase tracking-wider ${hasFault ? 'text-red-500' : originalPower ? 'text-emerald-400' : 'text-slate-500'}`}>
+                                {hasFault ? 'FAULT' : originalPower ? 'ONLINE' : 'OFFLINE'}
                             </span>
-                            <button
-                                onClick={() => setAutoMode(!autoMode)}
-                                className={`w-14 h-7 rounded-full relative transition-colors duration-300 shadow-inner ${autoMode ? 'bg-blue-500' : 'bg-slate-500'}`}
-                            >
-                                <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-transform duration-300 ${autoMode ? 'translate-x-8' : 'translate-x-1'}`}></div>
+                            <span className={`w-1.5 h-1.5 rounded-full ${hasFault ? 'bg-red-500 animate-ping' : originalPower ? 'bg-emerald-500' : 'bg-slate-600'}`}></span>
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 truncate">{device.name}</p>
+                </div>
+
+                {/* CỘT 3: VÙNG ĐIỀU KHIỂN (THAY ĐỔI LINH HOẠT THEO MÁY) */}
+                <div className="flex-1 flex flex-col sm:flex-row items-center gap-6 w-full px-4 border-x border-slate-800/50">
+
+                    {/* Các công tắc bật tắt / Auto */}
+                    <div className="flex flex-col gap-3 min-w-[180px]">
+                        <div className="flex items-center justify-between gap-4">
+                            <span className="text-[10px] text-slate-400 flex items-center gap-1.5 font-medium"><Power size={12} /> {device.type === 'VALVE' ? 'Trạng thái Van' : 'Nguồn cấp (Power)'}</span>
+                            {/* Nút Toggle Custom */}
+                            <button onClick={() => setPower(!power)} className={`w-9 h-5 rounded-full relative transition-colors duration-300 ${power ? 'bg-emerald-500' : 'bg-slate-700'}`}>
+                                <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[3px] transition-transform duration-300 ${power ? 'translate-x-[18px]' : 'translate-x-[3px]'}`}></div>
                             </button>
                         </div>
-                    )}
 
-                    {/* THANH TRƯỢT TỐC ĐỘ */}
-                    {isPump && (
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className={`text-sm font-bold flex items-center gap-2 ${hasFault ? 'text-red-700' : 'text-slate-700'}`}>
-                                    <Activity size={16} className={hasFault ? 'text-red-500' : 'text-orange-500'} /> Tần số (Speed)
-                                </span>
-                                <span className={`font-mono font-bold px-2 py-1 rounded ${hasFault ? 'text-red-600 bg-red-100' : 'text-orange-600 bg-orange-50'}`}>{speed} Hz</span>
+                        {(device.type === 'CHILLER' || device.type.includes('PUMP')) && (
+                            <div className="flex items-center justify-between gap-4">
+                                <span className="text-[10px] text-slate-400 flex items-center gap-1.5 font-medium"><Settings2 size={12} /> Chế độ (Auto/Man)</span>
+                                <button onClick={() => setAutoMode(!autoMode)} className={`w-9 h-5 rounded-full relative transition-colors duration-300 ${autoMode ? 'bg-blue-500' : 'bg-slate-700'}`}>
+                                    <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[3px] transition-transform duration-300 ${autoMode ? 'translate-x-[18px]' : 'translate-x-[3px]'}`}></div>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Thanh trượt tốc độ (Chỉ Bơm mới có) */}
+                    {device.type.includes('PUMP') && (
+                        <div className="flex-1 w-full pl-4">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] text-slate-400 flex items-center gap-1.5 font-medium"><Activity size={12} className="text-orange-500" /> Tần số (Speed)</span>
+                                <span className="text-xs font-black text-orange-400 font-mono">{speed.toFixed(1)} Hz</span>
                             </div>
                             <input
                                 type="range" min="0" max="60" step="0.1"
                                 value={speed} onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                                className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${hasFault ? 'bg-red-200 accent-red-600' : 'bg-slate-200 accent-orange-500'}`}
+                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
                             />
                         </div>
                     )}
                 </div>
 
-                <button
-                    onClick={() => handleSendCommand(device, { power, autoMode, speed, state: power })}
-                    disabled={processingId === device.id}
-                    className={`w-full mt-6 text-white font-bold py-3.5 rounded-xl transition-all flex justify-center items-center gap-2 shadow-lg text-xs tracking-widest uppercase disabled:opacity-50 ${hasFault ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-slate-900 hover:bg-blue-600 shadow-slate-200'
-                        }`}
-                >
-                    {processingId === device.id ? 'ĐANG GỬI LỆNH...' : 'THỰC THI LỆNH'}
-                </button>
+                {/* CỘT 4: NÚT THỰC THI */}
+                <div className="w-full md:w-40 shrink-0 flex justify-end">
+                    <button
+                        onClick={() => handleSendCommand(device, { power, autoMode, speed, state: power })}
+                        disabled={processingId === device.id}
+                        className={`w-full py-2.5 rounded-lg flex items-center justify-center gap-2 text-[10px] font-black tracking-widest uppercase transition-all shadow-lg ${hasFault
+                            ? 'bg-red-900/50 text-red-500 border border-red-900/50 hover:bg-red-600 hover:text-white'
+                            : 'bg-blue-600 text-white hover:bg-blue-500 shadow-blue-900/50'
+                            } disabled:opacity-50`}
+                    >
+                        {processingId === device.id ? 'ĐANG GỬI...' : (
+                            <>THỰC THI LỆNH <Play size={12} fill="currentColor" /></>
+                        )}
+                    </button>
+                </div>
             </div>
         );
     };
 
+    // ==========================================
+    // 4. GROUP THIẾT BỊ (Hệ thống)
+    // ==========================================
+    const systemGroups = [
+        { type: 'CHILLER', title: 'CHILLER SYSTEM', color: 'text-blue-400', icon: Snowflake },
+        { type: 'COLDPUMP', title: 'COLD PUMP SYSTEM', color: 'text-sky-400', icon: Droplets },
+        { type: 'COOLINGPUMP', title: 'COOLING PUMP SYSTEM', color: 'text-teal-400', icon: Droplets },
+        { type: 'COOLINGTOWER', title: 'COOLING TOWER SYSTEM', color: 'text-orange-400', icon: Fan },
+        { type: 'VALVE', title: 'VALVE SYSTEM', color: 'text-purple-400', icon: Settings2 }
+    ];
+
     return (
-        <div className="min-h-screen bg-slate-50 p-6 font-sans">
-            <div className="flex items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-8">
-                <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg"><Sliders size={24} /></div>
-                <div>
-                    <h1 className="text-xl font-black text-slate-800 uppercase tracking-tight">Bảng Điều Khiển Hệ Thống</h1>
-                    <p className="text-xs text-slate-500 font-bold">Gửi lệnh điều khiển trực tiếp tới PLC/EBO qua giao thức MQTT</p>
+        <div className="min-h-screen bg-[#020617] bg-scada-grid p-6 font-sans text-slate-200">
+            {/* HEADER TỔNG */}
+            <div className="flex flex-col md:flex-row justify-between items-center bg-slate-900/50 backdrop-blur-md border border-slate-800 p-5 rounded-3xl shadow-2xl mb-8">
+                <div className="flex items-center gap-4">
+                    <div className="bg-blue-600/20 border border-blue-500/30 p-3 rounded-2xl shadow-lg shadow-blue-500/10">
+                        <SlidersHorizontal size={24} className="text-blue-400" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-black text-white uppercase tracking-tight">Bảng Điều Khiển Hệ Thống</h1>
+                        <p className="text-[10px] text-slate-400 font-bold tracking-widest mt-0.5">GỬI LỆNH ĐIỀU KHIỂN</p>
+                    </div>
                 </div>
             </div>
 
+            {/* DANH SÁCH THEO NHÓM */}
             {loading ? (
-                <p className="text-center font-bold text-slate-400 animate-pulse mt-20">ĐANG TẢI BẢNG ĐIỀU KHIỂN...</p>
+                <p className="text-center font-bold text-slate-500 animate-pulse mt-20">ĐANG TẢI BẢNG ĐIỀU KHIỂN...</p>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {devices.map(device => (
-                        <ControlCard key={device.id} device={device} />
-                    ))}
+                <div className="space-y-6 max-w-[1400px] mx-auto">
+                    {systemGroups.map(group => {
+                        const groupDevices = devices.filter(d => d.type === group.type);
+                        if (groupDevices.length === 0) return null;
+
+                        return (
+                            <div key={group.type} className="bg-slate-900/40 backdrop-blur-sm border border-slate-800/80 rounded-[2rem] p-6 shadow-xl">
+                                {/* Header Nhóm */}
+                                <div className="flex justify-between items-center mb-6 pb-3 border-b border-slate-800/50">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-lg bg-slate-950 border border-slate-800 ${group.color}`}>
+                                            <group.icon size={18} />
+                                        </div>
+                                        <div>
+                                            <h2 className={`text-sm font-black uppercase tracking-widest ${group.color}`}>{group.title}</h2>
+                                            <p className="text-[10px] text-slate-500 font-bold">{groupDevices.length} thiết bị</p>
+                                        </div>
+                                    </div>
+                                    <button className="text-[10px] font-bold text-slate-400 hover:text-white flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 transition-all">
+                                        Xem tất cả <ChevronRight size={12} />
+                                    </button>
+                                </div>
+
+                                {/* Danh sách Row */}
+                                <div className="space-y-1">
+                                    {groupDevices.map(device => (
+                                        <DeviceRow key={device.id} device={device} />
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
