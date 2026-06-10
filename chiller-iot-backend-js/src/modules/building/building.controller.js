@@ -80,17 +80,23 @@ export const BuildingController = {
             });
             if (!building) return res.status(404).json({ message: "Tòa nhà không tồn tại" });
 
-            // 2. Dùng Transaction để xóa sạch các dữ liệu liên quan
+            // 2. Dùng Transaction để xóa sạch các dữ liệu liên quan THEO ĐÚNG THỨ TỰ
             await prisma.$transaction([
-                // Xóa liên kết người quản lý - tòa nhà
+                // Bước 1: Xóa liên kết người quản lý - tòa nhà
                 prisma.userBuilding.deleteMany({ where: { buildingId } }),
-                // Xóa nhật ký điều khiển của các thiết bị trong nhà này
+
+                // Bước 2: Xóa nhật ký điều khiển của các thiết bị trong nhà này
                 prisma.controlLog.deleteMany({
                     where: { device_code: { in: building.devices.map(d => d.code) } }
                 }),
-                // Xóa toàn bộ thiết bị thuộc tòa nhà
+
+                // Bước 3: Xóa toàn bộ thiết bị thuộc tòa nhà
                 prisma.device.deleteMany({ where: { buildingId } }),
-                // Cuối cùng mới xóa Tòa nhà
+
+                // Bước 4 (BỔ SUNG CỰC KỲ QUAN TRỌNG): Xóa toàn bộ Phân hệ (Subsystem)
+                prisma.subsystem.deleteMany({ where: { buildingId } }),
+
+                // Bước 5: Cuối cùng mới xóa Tòa nhà
                 prisma.building.delete({ where: { id: buildingId } })
             ]);
 
@@ -134,6 +140,45 @@ export const BuildingController = {
             res.json({ message: "Cập nhật cơ sở thành công", data: updated });
         } catch (error) {
             console.error(error);
+            res.status(500).json({ error: "Lỗi hệ thống" });
+        }
+    },
+
+    // Lấy thống kê tổng quan và Lịch sử hoạt động (Dành cho Super Admin Dashboard)
+    getSystemDashboard: async (req, res) => {
+        try {
+            if (req.user.role !== 'SUPER_ADMIN') {
+                return res.status(403).json({ message: "Chỉ Super Admin mới có quyền truy cập!" });
+            }
+
+            // 1. Lấy thống kê đếm số lượng
+            const totalBuildings = await prisma.building.count();
+            const totalAdmins = await prisma.user.count({ where: { role: 'BUILDING_ADMIN' } });
+            const totalDevices = await prisma.device.count();
+
+            // 2. Lấy 50 lịch sử điều khiển mới nhất kèm thông tin người dùng và tòa nhà
+            const recentLogs = await prisma.controlLog.findMany({
+                take: 50,
+                orderBy: { created_at: 'desc' },
+                include: {
+                    user: {
+                        select: { fullName: true, username: true }
+                    },
+                    device: {
+                        include: {
+                            building: { select: { name: true, code: true } },
+                            subsystem: { select: { name: true } } // Lấy thêm tên phân hệ
+                        }
+                    }
+                }
+            });
+
+            res.status(200).json({
+                stats: { totalBuildings, totalAdmins, totalDevices },
+                recentLogs
+            });
+        } catch (error) {
+            console.error("Lỗi lấy dữ liệu Dashboard:", error);
             res.status(500).json({ error: "Lỗi hệ thống" });
         }
     }

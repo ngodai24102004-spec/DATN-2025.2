@@ -24,6 +24,7 @@ model Building {
   // Quan hệ: Một tòa nhà có nhiều thiết bị, nhiều người quản lý
   devices     Device[]
   managers    UserBuilding[]
+  subsystems  Subsystem[]
 
   @@map("buildings")
 }
@@ -59,6 +60,7 @@ model UserBuilding {
 model Device {
   id           Int      @id @default(autoincrement())
   buildingId   Int      // Khóa ngoại liên kết tới tòa nhà
+  subsystemId  Int  
   code         String   @unique @db.VarChar(50)
   name         String?  @db.VarChar(100)
   location     String?  @db.VarChar(255)
@@ -67,6 +69,7 @@ model Device {
   last_updated DateTime @default(now()) @updatedAt
 
   building     Building @relation(fields: [buildingId], references: [id])
+  subsystem    Subsystem @relation(fields: [subsystemId], references: [id])
   ControlLogs  ControlLog[]
 
   @@map("devices")
@@ -86,4 +89,17 @@ model ControlLog {
   user            User      @relation(fields: [user_id], references: [id])
 
   @@map("control_logs")
+}
+// 7. Bảng phân hệ
+model Subsystem {
+  id          Int      @id @default(autoincrement())
+  buildingId  Int
+  name        String   @db.VarChar(100) // VD: Hệ thống chiếu sáng
+  code        String   @db.VarChar(50)  // VD: LIGHTING
+  createdAt   DateTime @default(now())
+
+  building    Building @relation(fields: [buildingId], references: [id])
+  devices     Device[] 
+
+  @@map("subsystems")
 }

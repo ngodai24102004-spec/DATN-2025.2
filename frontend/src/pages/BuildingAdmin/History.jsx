@@ -41,21 +41,29 @@ export default function HistoryPage() {
         'COLDPUMP': 'coldpump_data',
         'COOLINGPUMP': 'coolingpump_data',
         'COOLINGTOWER': 'coolingtower_data',
-        'AHU': 'ahu_data'
+        'AHU': 'ahu_data',
+        'LIGHT': 'lighting_data',
+        'LIGHT_DIMMER': 'lighting_data',
+        'DOMESTIC_PUMP': 'domestic_pump_data',
+        'FAN': 'ventilation_data'
     };
 
     const fieldConfig = {
-        temperature: { name: "Nhiệt độ nước lạnh", unit: "°C", icon: Thermometer, color: "#38bdf8" },
-        pressure: { name: "Áp suất", unit: "bar", icon: Gauge, color: "#3b82f6" },
+        temperature: { name: "Nhiệt độ nước", unit: "°C", icon: Thermometer, color: "#38bdf8" },
+        pressure: { name: "Áp suất nước", unit: "bar", icon: Gauge, color: "#3b82f6" },
         flow_rate: { name: "Lưu lượng", unit: "m³/h", icon: Droplets, color: "#06b6d4" },
         speed: { name: "Tốc độ chạy", unit: "Hz", icon: Zap, color: "#8b5cf6" },
         frequency: { name: "Tần số quạt", unit: "Hz", icon: Wind, color: "#8b5cf6" },
         power: { name: "Trạng thái Nguồn", unit: "", icon: Power, color: "#10b981" },
-        'auto-mode': { name: "Chế độ Auto", unit: "", icon: Settings, color: "#3b82f6" },
+        'auto-mode': { name: "Chế độ Auto/Man", unit: "", icon: Settings, color: "#3b82f6" },
+        auto_mode: { name: "Chế độ Auto/Man", unit: "", icon: Settings, color: "#3b82f6" },
         fault: { name: "Cảnh báo Lỗi", unit: "", icon: AlertTriangle, color: "#ef4444" },
-        state: { name: "Trạng thái Van", unit: "", icon: Activity, color: "#10b981" },
-        kw: { name: "Công suất", unit: "kW", icon: Zap, color: "#f59e0b" },
-        cop: { name: "Hiệu suất COP", unit: "", icon: Activity, color: "#10b981" }
+        state: { name: "Trạng thái Hoạt động", unit: "", icon: Activity, color: "#10b981" },
+        flow_status: { name: "Trạng thái Dòng chảy", unit: "", icon: Activity, color: "#10b981" },
+        brightness: { name: "Cường độ sáng", unit: "%", icon: Activity, color: "#eab308" }, // Vàng
+        air_temperature: { name: "Nhiệt độ luồng gió", unit: "°C", icon: Thermometer, color: "#f97316" }, // Cam
+        air_pressure: { name: "Áp suất gió", unit: "Pa", icon: Gauge, color: "#0ea5e9" }, // Xanh lơ
+        fan_speed: { name: "Tốc độ Quạt gió", unit: "%", icon: Wind, color: "#8b5cf6" } // Tím
     };
 
     useEffect(() => {
@@ -203,7 +211,7 @@ export default function HistoryPage() {
                     </div>
                     <div>
                         <h1 className="text-xl font-bold tracking-wider text-white uppercase">Trung tâm phân tích dữ liệu</h1>
-                        <p className="text-xs text-slate-400 font-medium">Lịch sử vận hành thời gian thực từ InfluxDB</p>
+                        <p className="text-xs text-slate-400 font-medium">Lịch sử vận hành thời gian thực</p>
                     </div>
                 </div>
 

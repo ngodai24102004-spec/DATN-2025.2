@@ -11,5 +11,6 @@ router.put('/profile/name', verifyToken, AuthController.updateProfileName);
 router.get('/building-admins', verifyToken, AuthController.getBuildingAdmins);
 router.delete('/users/:id', verifyToken, AuthController.deleteUser);
 router.put('/users/:id', verifyToken, AuthController.updateUserByAdmin);
+router.post('/add-manager', verifyToken, AuthController.addManagerToBuilding);
 
 export default router;

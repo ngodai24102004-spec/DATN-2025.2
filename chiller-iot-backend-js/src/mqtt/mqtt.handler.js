@@ -26,6 +26,19 @@ export const handleMqttMessage = async (topic, message) => {
         else if (topic === 'yoo/yootek/cooling/chiller/coolingTower/get/response') {
             await DeviceService.handleCoolingTowerData(payload);
         }
+        else if (topic === 'yoo/yootek/cooling/chiller/ahu/get/response') {
+            await DeviceService.handleAhuData(payload);
+        }
+        else if (topic === 'yoo/yootek/light/light') {
+            await DeviceService.handleLightData(payload);
+        }
+        else if (topic === 'yoo/yootek/pump/pump') {
+            await DeviceService.handleDomesticPumpData(payload);
+        }
+        else if (topic === 'yoo/yootek/fan') {
+            await DeviceService.handleFanData(payload);
+        }
+
 
     } catch (error) {
         console.error("❌ Lỗi parse JSON MQTT:", error.message);

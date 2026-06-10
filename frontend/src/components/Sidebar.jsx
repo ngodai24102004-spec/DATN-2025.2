@@ -30,6 +30,7 @@ const Sidebar = () => {
     if (user?.role === 'SUPER_ADMIN') {
         // 1. NẾU LÀ SUPER ADMIN: Chỉ hiển thị menu Quản lý hệ thống
         menuItems = [
+            { name: 'Dashboard Tổng', path: '/admin/dashboard', icon: LayoutDashboard },
             { name: 'Quản lý Tòa nhà', path: '/admin', icon: ShieldCheck },
             { name: 'Quản lý Admin', path: '/admin/managers', icon: Users }
         ];

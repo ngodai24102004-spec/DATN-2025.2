@@ -34,3 +34,11 @@ export const updateBuildingApi = async (id, data) => {
     });
     return response.data;
 };
+// Lấy dashboard tổng quan hệ thống (Chỉ Super Admin)
+export const getSystemDashboardApi = async () => {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`${API_URL}/buildings/system-dashboard`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};

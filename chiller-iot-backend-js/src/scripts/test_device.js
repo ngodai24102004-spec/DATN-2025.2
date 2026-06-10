@@ -14,106 +14,137 @@ const options = {
 // Kết nối tới HiveMQ Cloud
 const client = mqtt.connect(process.env.MQTT_BROKER_URL, options);
 
+// ==========================================
+// 1. ĐỊNH NGHĨA TOPIC PHẢN HỒI (RESPONSE/GET)
+// ==========================================
 const CHILLER_TOPIC = 'yoo/yootek/cooling/chiller/chillers/get/response';
 const PIPE_TOPIC = 'yoo/yootek/cooling/chiller/pipes/get/response';
 const VALVE_TOPIC = 'yoo/yootek/cooling/chiller/valves/get/response';
 const COLDPUMP_TOPIC = 'yoo/yootek/cooling/chiller/coldPump/get/response';
 const COOLINGPUMP_TOPIC = 'yoo/yootek/cooling/chiller/coolingPump/get/response';
 const COOLINGTOWER_TOPIC = 'yoo/yootek/cooling/chiller/coolingTower/get/response';
+const AHU_TOPIC = 'yoo/yootek/cooling/chiller/ahu/get/response';
+const LIGHT_TOPIC = 'yoo/yootek/light/light';
+const DOMESTIC_PUMP_TOPIC = 'yoo/yootek/pump/pump';
+const FAN_TOPIC = 'yoo/yootek/fan';
 
+// ==========================================
+// 2. MAP TOPIC ĐIỀU KHIỂN (SET) VỚI TOPIC PHẢN HỒI
+// ==========================================
+const TOPIC_MAP = {
+    'yoo/yootek/cooling/chiller/chillers/set': CHILLER_TOPIC,
+    'yoo/yootek/cooling/chiller/ahu/set': AHU_TOPIC,
+    'yoo/yootek/cooling/chiller/valves/set': VALVE_TOPIC,
+    'yoo/yootek/cooling/chiller/coldPump/set': COLDPUMP_TOPIC,
+    'yoo/yootek/cooling/chiller/coolingPump/set': COOLINGPUMP_TOPIC,
+    'yoo/yootek/cooling/chiller/coolingTower/set': COOLINGTOWER_TOPIC,
+    'yoo/yootek/light/light/set': LIGHT_TOPIC,
+    'yoo/yootek/light/dimmer_light/set': LIGHT_TOPIC,
+    'yoo/yootek/pump/set': DOMESTIC_PUMP_TOPIC,
+    'yoo/yootek/fan/set': FAN_TOPIC
+};
+
+// ==========================================
+// 3. BỘ NHỚ TRẠNG THÁI THIẾT BỊ (Mặc định khi bật)
+// ==========================================
+let deviceMemory = {
+    "chiller-001": { code: "chiller-001", power: 1, "auto-mode": 1, fault: 0 },
+    "PIPE-001": { code: "PIPE-001", flow_status: 1, temperature: 12.5, flow_rate: 23.4, pressure: 1.6 },
+    "VALVE-001": { code: "VALVE-001", state: 1 },
+    "COLDPUMP-001": { code: "COLDPUMP-001", power: 1, "auto-mode": 1, fault: 0, speed: 42.5 },
+    "COOLINGPUMP-001": { code: "COOLINGPUMP-001", power: 1, "auto-mode": 1, fault: 0, speed: 45.0 },
+    "COOLINGTOWER-001": { code: "COOLINGTOWER-001", power: 1, "auto-mode": 1, fault: 0 },
+    "AHU-ROOM-A": { code: "AHU-ROOM-A", power: 1, "auto-mode": 1, fault: 0, temperature: 22.5, frequency: 45.0 },
+    "LIGHT_01": { code: "LIGHT_01", state: 1 },
+    "LIGHT_DIMMER_01": { code: "LIGHT_DIMMER_01", state: 1, brightness: 80 },
+    "PUMP_01": { code: "PUMP_01", state: 1, mode: "AUTO", fault: 0, speed: 40.0 },
+    "FAN_01": { code: "FAN_01", state: 1, mode: "AUTO", fault: 0, air_pressure: 120.0, air_temperature: 28.0, fan_speed: 80 }
+};
 
 client.on('connect', () => {
-    console.log('🚀 Simulator đã chạy! Đang gửi dữ liệu giả lập cho các thiết bị');
+    console.log('🚀 Simulator V2 đã chạy! Đang gửi dữ liệu và lắng nghe lệnh điều khiển...');
 
+    // Đăng ký nhận toàn bộ các lệnh điều khiển (SET) từ Backend
+    client.subscribe(Object.keys(TOPIC_MAP));
+
+    // ==========================================
+    // VÒNG LẶP GỬI DỮ LIỆU ĐỊNH KỲ (Lấy từ bộ nhớ)
+    // ==========================================
     setInterval(() => {
         const now = new Date().toLocaleTimeString();
 
-        // 1. GIẢ LẬP DỮ LIỆU CHILLER-001
-        const chillerData = [
-            {
-                "code": "chiller-001",
-                "power": 1, // Luôn bật để test UI
-                "auto-mode": Math.random() > 0.5 ? 1 : 0, // 50% cơ hội là Auto (Nhãn xanh)
-                "fault": Math.random() > 15 ? 1 : 0 // 10% cơ hội bị lỗi (Để test UI viền Đỏ)
-            },
-            {
-                "code": "Chiller-002",
-                "power": Math.random() > 0.5 ? 1 : 0, // 50% cơ hội là đang chạy
-                "auto-mode": 1,                       // Chiller 2 chạy Auto (Nhãn xanh)
-                "fault": Math.random() > 0.9 ? 1 : 0  // 10% cơ hội bị lỗi (Để test UI viền Đỏ)
-            }
-        ];
-        client.publish(CHILLER_TOPIC, JSON.stringify(chillerData));
-        console.log(`📡 [${now}] -> Topic: Chiller | Status: ${chillerData[0].power ? 'ON' : 'OFF'}`);
+        // Thêm nhiễu vật lý ngẫu nhiên cho các cảm biến (Giữ nguyên tính chân thực)
+        if (deviceMemory["PIPE-001"].flow_status) {
+            deviceMemory["PIPE-001"].temperature = (12.5 + (Math.random() * 2 - 1)).toFixed(2);
+            deviceMemory["PIPE-001"].flow_rate = (23.4 + (Math.random() * 4 - 2)).toFixed(2);
+            deviceMemory["PIPE-001"].pressure = (1.6 + (Math.random() * 0.4 - 0.2)).toFixed(2);
+        }
+        if (deviceMemory["AHU-ROOM-A"].power) {
+            deviceMemory["AHU-ROOM-A"].temperature = (22.5 + (Math.random() * 1.5 - 0.5)).toFixed(1);
+        }
+        if (deviceMemory["FAN_01"].state) {
+            deviceMemory["FAN_01"].air_pressure = (120 + Math.random() * 10).toFixed(1);
+            deviceMemory["FAN_01"].air_temperature = (28 + Math.random() * 2).toFixed(1);
+        }
 
+        // Publish dữ liệu định kỳ từ bộ nhớ
+        client.publish(CHILLER_TOPIC, JSON.stringify([deviceMemory["chiller-001"]]));
+        client.publish(PIPE_TOPIC, JSON.stringify([deviceMemory["PIPE-001"]]));
+        client.publish(VALVE_TOPIC, JSON.stringify([deviceMemory["VALVE-001"]]));
+        client.publish(COLDPUMP_TOPIC, JSON.stringify([deviceMemory["COLDPUMP-001"]]));
+        client.publish(COOLINGPUMP_TOPIC, JSON.stringify([deviceMemory["COOLINGPUMP-001"]]));
+        client.publish(COOLINGTOWER_TOPIC, JSON.stringify([deviceMemory["COOLINGTOWER-001"]]));
+        client.publish(AHU_TOPIC, JSON.stringify([deviceMemory["AHU-ROOM-A"]]));
+        console.log(`❄️ [${now}] CHILLER PLANT | Gửi 7 topics (Chiller, Bơm, Tháp, Van, Ống, AHU)`);
 
-        // 2. GIẢ LẬP DỮ LIỆU PIPE-001 (Cảm biến đường ống)
-        // Tạo các giá trị ngẫu nhiên quanh ngưỡng thực tế
-        const pipeData = [
-            {
-                "code": "PIPE-001",
-                "flow_status": 1,
-                "temperature": (12.5 + (Math.random() * 2 - 1)).toFixed(2), // 11.5 - 13.5 độ C
-                "flow_rate": (23.4 + (Math.random() * 4 - 2)).toFixed(2),   // 21.4 - 25.4 m3/h
-                "pressure": (1.6 + (Math.random() * 0.4 - 0.2)).toFixed(2)  // 1.4 - 1.8 bar
-            }
-        ];
-        client.publish(PIPE_TOPIC, JSON.stringify(pipeData));
-        console.log(`📡 [${now}] -> Topic: Pipe    | Temp: ${pipeData[0].temperature}°C | Press: ${pipeData[0].pressure} bar`);
+        client.publish(LIGHT_TOPIC, JSON.stringify([deviceMemory["LIGHT_01"], deviceMemory["LIGHT_DIMMER_01"]]));
+        console.log(`💡 [${now}] LIGHTING      | LIGHT_01: ${deviceMemory["LIGHT_01"].state ? 'ON' : 'OFF'} | DIMMER: ${deviceMemory["LIGHT_DIMMER_01"].brightness}%`);
 
-        //3. GIẢ LẬP DỮ LIỆU VALVE-001 (Van điều khiển)
-        const valveData = [
-            {
-                "code": "VALVE-001",
-                "state": Math.random() > 0.5 ? 1 : 0 // Giả lập đóng/mở ngẫu nhiên
-            }
-        ];
-        client.publish(VALVE_TOPIC, JSON.stringify(valveData));
-        console.log(`📡 [${now}] -> Topic: Valve   | State: ${valveData[0].state === 1 ? 'OPEN' : 'CLOSE'}`);
+        client.publish(DOMESTIC_PUMP_TOPIC, JSON.stringify([deviceMemory["PUMP_01"]]));
+        console.log(`💧 [${now}] DOM. PUMP     | PUMP_01: ${deviceMemory["PUMP_01"].state ? 'ON' : 'OFF'} | Speed: ${deviceMemory["PUMP_01"].speed} Hz`);
 
-        // 4. GIẢ LẬP DỮ LIỆU COLDPUMP-001 (Bơm nước lạnh)
-        const isPumpRunning = Math.random() > 0.2 ? 1 : 0; // 80% là đang chạy
-        const coldPumpData = [
-            {
-                "code": "COLDPUMP-001",
-                "power": isPumpRunning,
-                "auto-mode": 1,
-                "fault": 0,
-                "speed": isPumpRunning ? (35 + Math.random() * 15).toFixed(1) : 0
-            }
-        ];
-        client.publish(COLDPUMP_TOPIC, JSON.stringify(coldPumpData));
-        console.log(`📡[${now}] -> Topic: ColdPump | Power: ${coldPumpData[0].power} | Speed: ${coldPumpData[0].speed} Hz`);
-
-        // 5. GIẢ LẬP DỮ LIỆU COOLINGPUMP-001 (Bơm giải nhiệt)
-        const isCoolingPumpRunning = Math.random() > 0.2 ? 1 : 0;
-        const coolingPumpData = [
-            {
-                "code": "COOLINGPUMP-001",
-                "power": isCoolingPumpRunning,
-                "auto-mode": 1,
-                "fault": Math.random() > 0.9 ? 1 : 0,
-                // Tốc độ bơm giải nhiệt thường dao động từ 40 - 50 Hz
-                "speed": isCoolingPumpRunning ? (40 + Math.random() * 10).toFixed(1) : 0
-            }
-        ];
-        client.publish(COOLINGPUMP_TOPIC, JSON.stringify(coolingPumpData));
-        console.log(`📡 [${now}] -> Topic: CoolingPump | Power: ${coolingPumpData[0].power} | Speed: ${coolingPumpData[0].speed} Hz`);
-
-        // 6. GIẢ LẬP DỮ LIỆU COOLINGTOWER-001 (Tháp giải nhiệt)
-        const towerData = [
-            {
-                "code": "COOLINGTOWER-001",
-                "power": Math.random() > 0.2 ? 1 : 0, // 80% là tháp đang bật quạt
-                "auto-mode": 1,
-                "fault": 0
-            }
-        ];
-        client.publish(COOLINGTOWER_TOPIC, JSON.stringify(towerData));
-        console.log(`📡 [${now}] -> Topic: Tower       | Power: ${towerData[0].power}`);
+        client.publish(FAN_TOPIC, JSON.stringify([deviceMemory["FAN_01"]]));
+        console.log(`💨 [${now}] VENTILATION   | FAN_01: ${deviceMemory["FAN_01"].state ? 'ON' : 'OFF'} | Speed: ${deviceMemory["FAN_01"].fan_speed}%`);
 
         console.log('--------------------------------------------------');
-    }, 5000); // Gửi mỗi 5 giây
+    }, 20000);
+});
+
+// ==========================================
+// BẮT LỆNH ĐIỀU KHIỂN & TRẢ VỀ PHẢN HỒI CHÍNH XÁC
+// ==========================================
+client.on('message', (topic, message) => {
+    try {
+        const commandArray = JSON.parse(message.toString());
+        const command = commandArray[0]; // Lấy object đầu tiên trong mảng
+        const code = command.code;
+
+        console.log(`\n⚡ [BẮT ĐƯỢC LỆNH] Từ topic: ${topic}`);
+        console.log(`📥 Lệnh yêu cầu cho [${code}]:`, command);
+
+        // Kiểm tra xem thiết bị có trong bộ nhớ không
+        if (deviceMemory[code]) {
+            // Cập nhật bộ nhớ với dữ liệu lệnh mới (Ghi đè)
+            deviceMemory[code] = { ...deviceMemory[code], ...command };
+
+            // Tìm đúng topic phản hồi (GET/RESPONSE) tương ứng
+            const responseTopic = TOPIC_MAP[topic];
+
+            if (responseTopic) {
+                // Tạo gói tin phản hồi mang đúng dữ liệu vừa thay đổi
+                const responsePayload = [deviceMemory[code]];
+
+                // Publish phản hồi NGAY LẬP TỨC để Backend kiểm tra
+                client.publish(responseTopic, JSON.stringify(responsePayload));
+                console.log(`📤 [PHẢN HỒI] Trả trạng thái thực tế về topic: ${responseTopic}\n`);
+            }
+        } else {
+            console.log(`⚠️ Không tìm thấy thiết bị [${code}] trong bộ nhớ giả lập.\n`);
+        }
+
+    } catch (err) {
+        console.error("❌ Lỗi parse lệnh MQTT:", err.message);
+    }
 });
 
 client.on('error', (err) => {

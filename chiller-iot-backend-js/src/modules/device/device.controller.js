@@ -4,11 +4,11 @@ export const DeviceController = {
     // 1. API: Thêm thiết bị mới vào tòa nhà
     addDevice: async (req, res) => {
         try {
-            const { buildingId, code, type, name, location } = req.body;
-            const user = req.user; // Lấy từ authMiddleware (id, role, buildingId)
+            // SỬA ĐỔI: Lấy thêm subsystemId từ req.body
+            const { buildingId, subsystemId, code, type, name, location } = req.body;
+            const user = req.user;
 
             // 1. Kiểm tra quyền hạn
-            // Nếu là BUILDING_ADMIN, chỉ được thêm thiết bị vào buildingId đã gán cho họ
             if (user.role === 'BUILDING_ADMIN') {
                 if (parseInt(buildingId) !== user.buildingId) {
                     return res.status(403).json({
@@ -17,19 +17,24 @@ export const DeviceController = {
                 }
             }
 
-            // 2. Kiểm tra loại thiết bị hợp lệ (Theo topic của bạn)
-            const validTypes = ['CHILLER', 'PIPE', 'VALVE', 'COLDPUMP', 'COOLINGPUMP', 'COOLINGTOWER'];
+            // 2. RÀNG BUỘC MỚI: Bắt buộc phải có Phân hệ
+            if (!subsystemId) {
+                return res.status(400).json({ message: "Thiết bị bắt buộc phải được gán vào một Phân hệ (subsystemId)!" });
+            }
+
+            // 3. Kiểm tra loại thiết bị hợp lệ 
+            const validTypes = ['CHILLER', 'PIPE', 'VALVE', 'COLDPUMP', 'COOLINGPUMP', 'COOLINGTOWER', 'LIGHT', 'LIGHT_DIMMER', 'FAN', 'DOMESTIC_PUMP', 'AHU'];
             if (!validTypes.includes(type.toUpperCase())) {
                 return res.status(400).json({ message: "Loại thiết bị không hợp lệ!" });
             }
 
-            // 3. Kiểm tra mã thiết bị (code) đã tồn tại chưa
+            // 4. Kiểm tra mã thiết bị (code) đã tồn tại chưa
             const existingDevice = await prisma.device.findUnique({ where: { code } });
             if (existingDevice) {
                 return res.status(400).json({ message: "Mã thiết bị (code) đã tồn tại trong hệ thống!" });
             }
 
-            // 4. Tạo thiết bị trong MySQL
+            // 5. TẠO THIẾT BỊ TRONG DATABASE (ĐÃ THÊM subsystemId)
             const newDevice = await prisma.device.create({
                 data: {
                     code: code,
@@ -37,16 +42,18 @@ export const DeviceController = {
                     name: name || `${type} ${code}`,
                     location: location || null,
                     buildingId: parseInt(buildingId),
-                    latest_state: {} // Khởi tạo trạng thái rỗng
+                    subsystemId: parseInt(subsystemId), // DÒNG QUAN TRỌNG NHẤT ĐỂ SỬA LỖI
+                    latest_state: {}
                 }
             });
 
             res.status(201).json({
-                message: "Thêm thiết bị vào tòa nhà thành công!",
+                message: "Thêm thiết bị vào phân hệ thành công!",
                 device: newDevice
             });
 
         } catch (error) {
+            console.error("Lỗi thêm thiết bị:", error);
             res.status(500).json({ error: error.message });
         }
     },
@@ -145,38 +152,59 @@ export const DeviceController = {
 
             // 2. Khởi tạo Payload và Topic theo bảng tài liệu của bạn
             let topicSuffix = "";
-            let payload = { code: code };
+            let payload = []; // Chuyển thành dạng MẢNG để gửi cho EBO
 
             switch (type) {
+                // --- NHÓM CHILLER TRUNG TÂM ---
                 case 'CHILLER':
-                    topicSuffix = "chillers/set";
-                    payload.power = command.power ? 1 : 0;
-                    payload["auto-mode"] = command.autoMode ? 1 : 0;
+                    topicSuffix = "cooling/chiller/chillers/set";
+                    payload = [{ code: code, power: command.power ? 1 : 0, "auto-mode": command.autoMode ? 1 : 0 }];
+                    break;
+                case 'AHU':
+                    topicSuffix = "cooling/chiller/ahu/set";
+                    payload = [{ code: code, power: command.power ? 1 : 0, "auto-mode": command.autoMode ? 1 : 0 }];
                     break;
                 case 'VALVE':
-                    topicSuffix = "valves/set";
-                    payload.state = command.state ? 1 : 0;
+                    topicSuffix = "cooling/chiller/valves/set";
+                    payload = [{ code: code, state: command.state ? 1 : 0 }];
                     break;
                 case 'COLDPUMP':
-                    topicSuffix = "coldPump/set";
-                    payload.power = command.power ? 1 : 0;
-                    payload.speed = parseFloat(command.speed) || 0;
+                    topicSuffix = "cooling/chiller/coldPump/set";
+                    payload = [{ code: code, power: command.power ? 1 : 0, speed: parseFloat(command.speed) || 0 }];
                     break;
                 case 'COOLINGPUMP':
-                    topicSuffix = "coolingPump/set";
-                    payload.power = command.power ? 1 : 0;
-                    payload.speed = parseFloat(command.speed) || 0;
+                    topicSuffix = "cooling/chiller/coolingPump/set";
+                    payload = [{ code: code, power: command.power ? 1 : 0, speed: parseFloat(command.speed) || 0 }];
                     break;
                 case 'COOLINGTOWER':
-                    topicSuffix = "coolingTower/set";
-                    payload.power = command.power ? 1 : 0;
+                    topicSuffix = "cooling/chiller/coolingTower/set";
+                    payload = [{ code: code, power: command.power ? 1 : 0 }];
                     break;
+
+                // --- CÁC PHÂN HỆ MỚI ---
+                case 'LIGHT':
+                    topicSuffix = "light/light/set";
+                    payload = [{ code: code, state: command.state ? 1 : 0 }];
+                    break;
+                case 'LIGHT_DIMMER':
+                    topicSuffix = "light/dimmer_light/set"; // Topic cho dimmer theo tài liệu của bạn
+                    payload = [{ code: code, state: command.state ? 1 : 0, brightness: parseFloat(command.brightness) || 0 }];
+                    break;
+                case 'DOMESTIC_PUMP':
+                    topicSuffix = "pump/set";
+                    payload = [{ code: code, state: command.state ? 1 : 0, speed: parseFloat(command.speed) || 0 }];
+                    break;
+                case 'FAN':
+                    topicSuffix = "fan/set";
+                    payload = [{ code: code, state: command.state ? 1 : 0, fan_speed: parseFloat(command.fan_speed) || 0 }];
+                    break;
+
                 default:
-                    return res.status(400).json({ message: "Loại thiết bị không hỗ trợ điều khiển" });
+                    return res.status(400).json({ message: `Loại thiết bị [${type}] chưa được cấu hình lệnh điều khiển.` });
             }
 
-            // Tạo chuỗi Topic hoàn chỉnh (Theo đúng chuẩn hình ảnh của bạn)
-            const topic = `yoo/yootek/cooling/chiller/${topicSuffix}`;
+            // Tạo chuỗi Topic hoàn chỉnh
+            const topic = `yoo/yootek/${topicSuffix}`;
 
             // 3. Publish lệnh xuống MQTT Broker
             import('../../config/mqtt.js').then(({ default: mqttClient }) => {
@@ -190,7 +218,7 @@ export const DeviceController = {
                 data: {
                     device_code: code,
                     user_id: user.id,
-                    command_payload: payload,
+                    command_payload: payload, // Lưu dạng mảng
                     status: 'SENT'
                 }
             });

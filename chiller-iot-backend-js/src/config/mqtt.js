@@ -26,7 +26,11 @@ mqttClient.on('connect', () => {
         'yoo/yootek/cooling/chiller/valves/get/response', // Dữ liệu Van điều khiển
         'yoo/yootek/cooling/chiller/coldPump/get/response',// Dữ liệu Bơm nước lạnh
         'yoo/yootek/cooling/chiller/coolingPump/get/response',// Dữ liệu Bơm nước giải nhiệt
-        'yoo/yootek/cooling/chiller/coolingTower/get/response' // Dữ liệu Tháp giải nhiệt
+        'yoo/yootek/cooling/chiller/coolingTower/get/response', // Dữ liệu Tháp giải nhiệt
+        'yoo/yootek/cooling/chiller/ahu/get/response', // AHU
+        'yoo/yootek/light/light',                      // Đèn (On/Off và Dimmer)
+        'yoo/yootek/pump/pump',                        // Bơm sinh hoạt
+        'yoo/yootek/fan'                               // Quạt thông gió
     ];
 
     mqttClient.subscribe(topicsToSubscribe, (err) => {

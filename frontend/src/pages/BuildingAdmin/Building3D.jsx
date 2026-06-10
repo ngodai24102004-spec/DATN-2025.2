@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useMemo, useEffect, useContext } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import {
     OrbitControls, Html, ContactShadows,
@@ -10,6 +10,7 @@ import {
     Activity, Wind, Droplets, Layout
 } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { AuthContext } from '../../context/AuthContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED MATERIALS - module level, tạo 1 lần duy nhất
@@ -514,6 +515,7 @@ function BuildingCornerRoof() {
 // COMPONENT CHÍNH
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Building3D({ devices = [] }) {
+    const { user } = useContext(AuthContext);
     const [selectedDeviceCode, setSelectedDeviceCode] = useState(null);
 
     const [liveData, setLiveData] = useState({
@@ -532,7 +534,16 @@ export default function Building3D({ devices = [] }) {
     // WebSocket - giữ nguyên hoàn toàn
     useEffect(() => {
         const socket = io("http://localhost:3000");
-        socket.on("connect", () => { console.log("✅ SCADA 3D Connected"); socket.emit("join-super-admin"); });
+        socket.on("connect", () => {
+            console.log("✅ SCADA 3D Connected");
+            if (user?.role === 'SUPER_ADMIN') {
+                // Nếu là sếp tổng thì mới join phòng Global
+                socket.emit("join-super-admin");
+            } else if (user?.building?.id) {
+                // Nếu là Admin tòa nhà thì chỉ join phòng của nhà mình
+                socket.emit("join-building", user.building.id);
+            }
+        });
         socket.on("device-update", (payload) => {
             console.log("⚡ 3D View nhận data Real-time:", payload.code);
             setLiveData(prev => {
@@ -547,7 +558,7 @@ export default function Building3D({ devices = [] }) {
         });
         socket.on("disconnect", () => console.log("❌ SCADA 3D Disconnected"));
         return () => socket.disconnect();
-    }, []);
+    }, [user]);
 
     const W = 42, D = 26, Y_PVP = 0.9, Y_RF = 8.0, Y_AHU = -0.75;
 

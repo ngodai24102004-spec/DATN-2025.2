@@ -300,5 +300,66 @@ export const AuthController = {
             console.error(error);
             res.status(500).json({ error: "Lỗi hệ thống" });
         }
+    },
+
+    // 8. API Thêm Quản trị viên vào Tòa nhà đã có sẵn (Dành cho Super Admin)
+    addManagerToBuilding: async (req, res) => {
+        try {
+            // 1. Kiểm tra dữ liệu Frontend gửi lên có bị thiếu không
+            console.log("📥 [ADD MANAGER] Dữ liệu nhận được:", req.body);
+
+            if (req.user.role !== 'SUPER_ADMIN') {
+                return res.status(403).json({ message: "Chỉ Super Admin mới có quyền thêm người quản lý!" });
+            }
+
+            const { buildingId, username, password, fullName } = req.body;
+
+            // Kiểm tra rỗng
+            if (!buildingId || !username || !password || !fullName) {
+                return res.status(400).json({ message: "Vui lòng điền đầy đủ tất cả các trường thông tin!" });
+            }
+
+            // 2. Kiểm tra username đã tồn tại chưa
+            const userExist = await prisma.user.findUnique({ where: { username } });
+            if (userExist) {
+                return res.status(400).json({ message: `Tên đăng nhập hoặc mật khẩu đã có người sử dụng. Vui lòng chọn tên khác!` });
+            }
+
+            // 3. Mã hóa mật khẩu
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // 4. Dùng Transaction: Tạo User xong thì map luôn vào bảng UserBuilding
+            const result = await prisma.$transaction(async (tx) => {
+                const newUser = await tx.user.create({
+                    data: {
+                        username: username,
+                        password: hashedPassword,
+                        fullName: fullName,
+                        role: 'BUILDING_ADMIN'
+                    }
+                });
+
+                await tx.userBuilding.create({
+                    data: {
+                        userId: newUser.id,
+                        buildingId: parseInt(buildingId)
+                    }
+                });
+
+                return newUser;
+            });
+
+            res.status(201).json({ message: "Thêm quản lý vào cơ sở thành công", user: result });
+
+        } catch (error) {
+            console.error("❌ Lỗi thêm quản lý:", error);
+
+            // Bắt lỗi Prisma (Ví dụ lỗi khóa ngoại)
+            if (error.code) {
+                return res.status(400).json({ message: `Lỗi CSDL Prisma mã: ${error.code}` });
+            }
+
+            res.status(500).json({ message: "Lỗi hệ thống khi thêm quản lý" });
+        }
     }
 };

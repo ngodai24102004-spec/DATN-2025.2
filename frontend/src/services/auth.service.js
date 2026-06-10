@@ -62,3 +62,15 @@ export const updateUserApi = async (id, data) => {
     });
     return response.data;
 };
+
+export const addManagerToBuildingApi = async (data) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await axios.post(`${API_URL}/auth/add-manager`, data, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || "Lỗi không xác định từ máy chủ");
+    }
+};

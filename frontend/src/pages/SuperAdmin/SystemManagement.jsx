@@ -180,7 +180,6 @@ export default function SystemManagement() {
                                     <th style={{ padding: '16px 24px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--cyber-text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Mã Định Danh</th>
                                     <th style={{ padding: '16px 24px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--cyber-text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Tên Cơ Sở</th>
                                     <th style={{ padding: '16px 24px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--cyber-text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Vị Trí / Địa Chỉ</th>
-                                    <th style={{ padding: '16px 24px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--cyber-text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Building Admin</th>
                                     <th style={{ padding: '16px 24px', textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px', color: 'var(--cyber-text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Thao tác</th>
                                 </tr>
                             </thead>
@@ -214,26 +213,7 @@ export default function SystemManagement() {
                                                     {building.address || <span style={{ opacity: 0.5, fontStyle: 'italic' }}>Chưa cập nhật</span>}
                                                 </div>
                                             </td>
-
-                                            {/* CỘT 4: NGƯỜI QUẢN LÝ */}
-                                            <td style={{ padding: '16px 24px' }}>
-                                                {building.managers.length > 0 ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                        {building.managers.map((mgr) => (
-                                                            <div key={mgr.user.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.3)', padding: '6px 12px', borderRadius: '8px', width: 'fit-content' }}>
-                                                                <UserCircle size={16} style={{ color: 'var(--cyber-green)' }} />
-                                                                <div>
-                                                                    <p style={{ fontSize: '12px', fontWeight: 700, color: '#aaffdd', lineHeight: 1 }}>{mgr.user.fullName}</p>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <span style={{ fontSize: '11px', background: 'rgba(255,60,90,0.15)', color: 'var(--cyber-red)', border: '1px solid rgba(255,60,90,0.3)', padding: '4px 10px', borderRadius: '6px', fontWeight: 700 }}>CHƯA BỔ NHIỆM</span>
-                                                )}
-                                            </td>
-
-                                            {/* CỘT 5: THAO TÁC */}
+                                            {/* CỘT 4: THAO TÁC */}
                                             <td className="p-4 text-center">
                                                 <div className="flex items-center justify-center gap-2">
                                                     <button
