@@ -1,4 +1,4 @@
-Giám sát và điều khiển thiết bị làm lạnh(Chiller) cho tòa nhà thông minh 
+Giám sát và điều khiển thiết bị cho tòa nhà thông minh 
 Để chạy được dự án sau khi git clone, bạn (hoặc người khác) cần thực hiện đúng "Quy trình 5 bước" dưới đây:
 Bước 1: Clone dự án và Cài đặt thư viện
 Mở Terminal và di chuyển vào từng thư mục để cài đặt.
