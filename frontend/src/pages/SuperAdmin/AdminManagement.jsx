@@ -11,18 +11,30 @@ export default function AdminManagement() {
     const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
     const [editUserData, setEditUserData] = useState({ id: null, fullName: '', username: '', password: '' });
 
+    const fetchAdmins = async () => {
+        try {
+            const data = await getBuildingAdminsApi();
+            setAdmins(data);
+        } catch (error) {
+            toast.error("Không thể tải danh sách Quản trị viên");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchAdmins = async () => {
-            try {
-                const data = await getBuildingAdminsApi();
-                setAdmins(data);
-            } catch (error) {
-                toast.error("Không thể tải danh sách Quản trị viên");
-            } finally {
-                setLoading(false);
-            }
-        };
+
         fetchAdmins();
+
+        const handleRefresh = () => {
+            fetchAdmins();
+        };
+
+        window.addEventListener('refresh-admin-list', handleRefresh);
+
+        return () => {
+            window.removeEventListener('refresh-admin-list', handleRefresh);
+        };
     }, []);
 
     const filteredAdmins = admins.filter(admin =>

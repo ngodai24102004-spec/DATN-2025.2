@@ -1,7 +1,7 @@
 import { useEffect, useState, useContext } from 'react';
 import { NotificationContext } from '../context/NotificationContext';
 // --- ĐÃ THÊM 2 API MỚI VÀO DÒNG NÀY ---
-import { getProfileApi, updateNameApi, getPendingUsersApi, handleApprovalApi } from '../services/auth.service';
+import { getProfileApi, updateNameApi, getPendingUsersApi, handleApprovalApi, changePasswordApi } from '../services/auth.service';
 import { AuthContext } from '../context/AuthContext';
 
 import {
@@ -9,7 +9,7 @@ import {
   X, Calendar, Shield, Trash2, AlertTriangle,
   Wifi, WifiOff, Clock,
   Sun, Cloud, CloudRain, CloudSun, CloudLightning,
-  UserPlus, Check // --- ĐÃ THÊM ICON MỚI VÀO ĐÂY ---
+  UserPlus, Check, Lock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -690,6 +690,30 @@ const Header = () => {
   const [newName, setNewName] = useState(user?.fullName || "");
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const [passForm, setPassForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
+  const [isChangingPass, setIsChangingPass] = useState(false);
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (passForm.newPassword !== passForm.confirmPassword) {
+      return toast.error("Mật khẩu mới không khớp nhau!");
+    }
+    if (passForm.newPassword.length < 6) {
+      return toast.error("Mật khẩu mới phải từ 6 ký tự trở lên!");
+    }
+
+    setIsChangingPass(true);
+    try {
+      await changePasswordApi({ oldPassword: passForm.oldPassword, newPassword: passForm.newPassword });
+      toast.success("Đổi mật khẩu thành công! Hãy dùng mật khẩu này cho lần đăng nhập sau.", { duration: 5000 });
+      setPassForm({ oldPassword: '', newPassword: '', confirmPassword: '' }); // Xóa trắng form
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Lỗi khi đổi mật khẩu");
+    } finally {
+      setIsChangingPass(false);
+    }
+  };
+
   // --- BỔ SUNG: LOGIC LẤY DANH SÁCH DUYỆT TÀI KHOẢN KHI MỚI VÀO ---
   useEffect(() => {
     if (user?.role === 'SUPER_ADMIN') {
@@ -719,6 +743,9 @@ const Header = () => {
       await handleApprovalApi({ userId, action });
       setPendingUsers(prev => prev.filter(u => u.id !== userId));
       toast.success(action === 'APPROVE' ? "Đã duyệt cấp quyền!" : "Đã từ chối yêu cầu!");
+      if (action === 'APPROVE') {
+        window.dispatchEvent(new Event('refresh-admin-list'));
+      }
     } catch (error) {
       toast.error("Xử lý thất bại. Vui lòng thử lại!");
     }
@@ -1083,32 +1110,61 @@ const Header = () => {
         </div>
       )}
 
-      {/* ===== MODAL CÀI ĐẶT CÁ NHÂN ===== */}
+      {/* ===== MODAL CÀI ĐẶT CÁ NHÂN & BẢO MẬT ===== */}
       {isSettingsModalOpen && (
         <div className="ch-modal-overlay">
           <div className="ch-modal-backdrop" onClick={() => setIsSettingsModalOpen(false)} />
-          <div className="ch-settings-modal">
+          <div className="ch-settings-modal" style={{ maxWidth: '420px' }}>
             <div className="ch-settings-header">
-              <span className="ch-settings-title">Cài đặt cá nhân</span>
+              <span className="ch-settings-title">Tùy chỉnh Tài khoản</span>
               <button className="ch-modal-close" onClick={() => setIsSettingsModalOpen(false)}><X size={16} /></button>
             </div>
-            <form onSubmit={handleUpdateName} className="ch-settings-form">
-              <div>
-                <label className="ch-settings-label">Thay đổi họ và tên</label>
-                <input
-                  type="text"
-                  className="ch-settings-input"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '10px', paddingTop: '4px' }}>
-                <button type="button" className="ch-btn-secondary" style={{ flex: 1 }} onClick={() => setIsSettingsModalOpen(false)}>Hủy</button>
-                <button type="submit" className="ch-btn-primary" style={{ flex: 2 }} disabled={isUpdating}>
-                  {isUpdating ? 'Đang lưu...' : 'Lưu thay đổi'}
-                </button>
-              </div>
-            </form>
+
+            <div className="custom-scrollbar" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              {/* FORM 1: ĐỔI TÊN HIỂN THỊ */}
+              <form onSubmit={handleUpdateName} className="ch-settings-form" style={{ paddingBottom: '10px' }}>
+                <div className="ch-settings-label" style={{ color: 'var(--cyber-green)', borderBottom: '1px solid #1a3a5c', paddingBottom: '6px' }}>Hồ sơ công khai</div>
+                <div>
+                  <label className="ch-settings-label" style={{ textTransform: 'none', letterSpacing: 'normal' }}>Thay đổi Họ và tên hiển thị</label>
+                  <input type="text" className="ch-settings-input" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="ch-btn-primary" disabled={isUpdating}>{isUpdating ? 'Đang lưu...' : 'Cập nhật tên'}</button>
+                </div>
+              </form>
+
+              <div style={{ height: '8px', background: 'rgba(0,0,0,0.3)', borderTop: '1px solid #1a3a5c', borderBottom: '1px solid #1a3a5c' }}></div>
+
+              {/* FORM 2: ĐỔI MẬT KHẨU */}
+              <form onSubmit={handlePasswordSubmit} className="ch-settings-form">
+                <div className="ch-settings-label" style={{ color: 'var(--cyber-amber)', borderBottom: '1px solid #1a3a5c', paddingBottom: '6px' }}>Bảo mật đăng nhập</div>
+
+                <div style={{ position: 'relative' }}>
+                  <label className="ch-settings-label" style={{ textTransform: 'none', letterSpacing: 'normal' }}>Mật khẩu hiện tại</label>
+                  <input type="password" required className="ch-settings-input" style={{ paddingLeft: '36px' }} placeholder="••••••••" value={passForm.oldPassword} onChange={(e) => setPassForm({ ...passForm, oldPassword: e.target.value })} />
+                  <Lock size={14} className="absolute left-3 top-9 text-slate-500" />
+                </div>
+
+                <div style={{ position: 'relative' }}>
+                  <label className="ch-settings-label" style={{ textTransform: 'none', letterSpacing: 'normal' }}>Mật khẩu mới (Tối thiểu 6 ký tự)</label>
+                  <input type="password" required className="ch-settings-input" style={{ paddingLeft: '36px' }} placeholder="••••••••" value={passForm.newPassword} onChange={(e) => setPassForm({ ...passForm, newPassword: e.target.value })} />
+                  <Lock size={14} className="absolute left-3 top-9 text-blue-400" />
+                </div>
+
+                <div style={{ position: 'relative' }}>
+                  <label className="ch-settings-label" style={{ textTransform: 'none', letterSpacing: 'normal' }}>Nhập lại mật khẩu mới</label>
+                  <input type="password" required className="ch-settings-input" style={{ paddingLeft: '36px' }} placeholder="••••••••" value={passForm.confirmPassword} onChange={(e) => setPassForm({ ...passForm, confirmPassword: e.target.value })} />
+                  <Lock size={14} className="absolute left-3 top-9 text-blue-400" />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
+                  <button type="button" className="ch-btn-secondary" style={{ flex: 1 }} onClick={() => setIsSettingsModalOpen(false)}>Hủy bỏ</button>
+                  <button type="submit" className="ch-btn-primary" style={{ flex: 2, background: 'linear-gradient(135deg, #b91c1c, #991b1b)', borderColor: '#ef4444', boxShadow: '0 0 15px rgba(239,68,68,0.2)' }} disabled={isChangingPass}>
+                    {isChangingPass ? 'Đang xác thực...' : 'ĐỔI MẬT KHẨU'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

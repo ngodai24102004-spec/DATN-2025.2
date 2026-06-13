@@ -36,8 +36,11 @@ const Login = () => {
             const data = await loginApi(username, password);
             loginUser(data.user, data.token);
 
-            if (data.user.role === 'SUPER_ADMIN') navigate('/admin/dashboard');
-            else navigate('/dashboard');
+            if (data.user.role === 'SUPER_ADMIN') {
+                window.location.href = '/admin/dashboard';
+            } else {
+                window.location.href = '/dashboard';
+            }
         } catch (err) {
             setError(err.message);
         } finally {

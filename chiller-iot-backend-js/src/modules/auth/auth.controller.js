@@ -352,6 +352,38 @@ export const AuthController = {
         }
     },
 
+    // API Đổi mật khẩu cá nhân (Dùng chung cho cả Super Admin và Building Admin)
+    changePassword: async (req, res) => {
+        try {
+            const userId = req.user.id; // Lấy ID từ Token của người đang đăng nhập
+            const { oldPassword, newPassword } = req.body;
+
+            if (!oldPassword || !newPassword) {
+                return res.status(400).json({ message: "Vui lòng nhập đầy đủ thông tin!" });
+            }
+
+            // 1. Tìm user trong Database
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
+
+            // 2. Kiểm tra mật khẩu cũ xem có khớp không
+            const isMatch = await bcrypt.compare(oldPassword, user.password);
+            if (!isMatch) return res.status(400).json({ message: "Mật khẩu hiện tại không chính xác!" });
+
+            // 3. Mã hóa mật khẩu mới và lưu vào DB
+            const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+            await prisma.user.update({
+                where: { id: userId },
+                data: { password: hashedNewPassword }
+            });
+
+            res.json({ message: "Đổi mật khẩu thành công!" });
+        } catch (error) {
+            console.error("Lỗi đổi mật khẩu:", error);
+            res.status(500).json({ message: "Lỗi hệ thống khi đổi mật khẩu" });
+        }
+    },
+
     // 5. Lấy danh sách Building Admin (Dành cho Super Admin)
     getBuildingAdmins: async (req, res) => {
         try {
@@ -362,14 +394,14 @@ export const AuthController = {
 
             const admins = await prisma.user.findMany({
                 where: {
-                    role: 'BUILDING_ADMIN'
+                    role: 'BUILDING_ADMIN',
+                    status: { not: 'PENDING' }
                 },
                 select: {
                     id: true,
                     username: true,
                     fullName: true,
                     createdAt: true,
-                    // Lấy luôn thông tin tòa nhà mà người này đang quản lý
                     managedBuildings: {
                         include: {
                             building: true
@@ -402,16 +434,20 @@ export const AuthController = {
             const targetUser = await prisma.user.findUnique({ where: { id: userId } });
             if (!targetUser) return res.status(404).json({ message: "Người dùng không tồn tại" });
 
-            // 3. Không cho phép Super Admin tự xóa chính mình qua API này
+            // 3. Không cho phép Super Admin tự xóa chính mình
             if (targetUser.id === req.user.id) {
                 return res.status(400).json({ message: "Bạn không thể tự xóa chính mình!" });
             }
 
-            // 4. Dùng Transaction để xóa sạch dữ liệu liên quan
+            // 4. Dùng Transaction để xóa sạch dữ liệu liên quan THEO ĐÚNG THỨ TỰ
             await prisma.$transaction([
-                // Xóa liên kết người dùng - tòa nhà
+                // BƯỚC 1 CỰC KỲ QUAN TRỌNG: Xóa toàn bộ lịch sử điều khiển của người này
+                prisma.controlLog.deleteMany({ where: { user_id: userId } }),
+
+                // BƯỚC 2: Xóa liên kết người dùng - tòa nhà
                 prisma.userBuilding.deleteMany({ where: { userId: userId } }),
-                // Cuối cùng xóa User
+
+                // BƯỚC 3: Cuối cùng mới xóa User an toàn
                 prisma.user.delete({ where: { id: userId } })
             ]);
 

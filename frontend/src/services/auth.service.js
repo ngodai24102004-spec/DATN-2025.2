@@ -77,6 +77,15 @@ export const updateNameApi = async (fullName) => {
     return response.data;
 };
 
+export const changePasswordApi = async (data) => {
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    const response = await axios.put(`${API_URL}/auth/change-password`, data, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+
+
 export const getBuildingAdminsApi = async () => {
     const token = localStorage.getItem('token');
     const response = await axios.get(`${API_URL}/auth/building-admins`, {

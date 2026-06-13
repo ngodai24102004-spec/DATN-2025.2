@@ -153,7 +153,12 @@ export const BuildingController = {
 
             // 1. Lấy thống kê đếm số lượng
             const totalBuildings = await prisma.building.count();
-            const totalAdmins = await prisma.user.count({ where: { role: 'BUILDING_ADMIN' } });
+            const totalAdmins = await prisma.user.count({
+                where: {
+                    role: 'BUILDING_ADMIN',
+                    status: { not: 'PENDING' }
+                }
+            });
             const totalDevices = await prisma.device.count();
 
             // 2. Lấy 50 lịch sử điều khiển mới nhất kèm thông tin người dùng và tòa nhà

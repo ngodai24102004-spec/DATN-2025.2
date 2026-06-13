@@ -9,22 +9,35 @@ export default function SuperAdminDashboard() {
     const [data, setData] = useState({ stats: {}, recentLogs: [] });
     const [loading, setLoading] = useState(true);
 
+    const fetchData = async () => {
+        try {
+            const result = await getSystemDashboardApi();
+            setData(result);
+        } catch (error) {
+            console.error("Lỗi tải Dashboard:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const result = await getSystemDashboardApi();
-                setData(result);
-            } catch (error) {
-                console.error("Lỗi tải Dashboard:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
+        // 1. Lấy dữ liệu lần đầu tiên khi mở trang
         fetchData();
 
-        // Tự động làm mới mỗi 10 giây (Real-time Audit Trail)
-        const interval = setInterval(fetchData, 10000);
-        return () => clearInterval(interval);
+        // 2. Tự động làm mới mỗi 10 giây (Để lấy Lịch sử điều khiển Real-time)
+        const interval = setInterval(fetchData, 5000);
+
+        // 3. LẮNG NGHE TÍN HIỆU TỪ HEADER (Cập nhật ngay lập tức khi vừa duyệt Admin mới)
+        const handleRefresh = () => {
+            fetchData();
+        };
+        window.addEventListener('refresh-admin-list', handleRefresh);
+
+        // Dọn dẹp bộ nhớ
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('refresh-admin-list', handleRefresh);
+        };
     }, []);
 
     // Hàm định dạng thời gian dạng "Vừa xong", "5 phút trước"...
