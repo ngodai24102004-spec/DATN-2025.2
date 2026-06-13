@@ -1,8 +1,136 @@
 import prisma from '../../config/prisma.js';
+import { getIo } from '../../config/socket.js';
+import { sendApprovalEmail } from '../../config/mail.service.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 export const AuthController = {
+
+    // 1. API Gửi yêu cầu đăng ký (Dành cho trang Login)
+    requestRegistration: async (req, res) => {
+        try {
+            const { username, password, fullName, email, buildingCode } = req.body;
+
+            const exist = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } });
+            if (exist) return res.status(400).json({ message: "Username hoặc Email đã được sử dụng!" });
+
+            // Dò tìm tòa nhà bằng mã code
+            const targetBuilding = await prisma.building.findUnique({
+                where: { code: buildingCode }
+            });
+
+            if (!targetBuilding) {
+                return res.status(400).json({ message: "Mã tòa nhà không tồn tại! Vui lòng kiểm tra lại." });
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            const newUser = await prisma.user.create({
+                data: {
+                    username, password: hashedPassword, fullName, email,
+                    role: 'BUILDING_ADMIN', status: 'PENDING', requestedBuildingId: targetBuilding.id
+                }
+            });
+
+            // SỬA: Đóng gói thêm Tên và Mã tòa nhà để gửi qua Socket
+            const io = await import('../../config/socket.js').then(m => m.getIo());
+            io.to("super_admin_room").emit("new-registration", {
+                id: newUser.id,
+                username,
+                fullName,
+                email,
+                // Gắn thêm object này cho Frontend dễ đọc
+                requestedBuilding: {
+                    name: targetBuilding.name,
+                    code: targetBuilding.code
+                }
+            });
+
+            res.status(201).json({ message: "Gửi yêu cầu thành công! Vui lòng chờ phê duyệt." });
+        } catch (error) {
+            console.error("Lỗi gửi yêu cầu đăng ký:", error);
+            res.status(500).json({ message: "Gửi yêu cầu thất bại!" });
+        }
+    },
+
+
+    // 2. API Duyệt hoặc Từ chối (Dành cho Super Admin)
+    handleApproval: async (req, res) => {
+        try {
+            if (req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ message: "Không có quyền" });
+
+            const { userId, action } = req.body;
+
+            // Tìm user trước để lấy email gửi thông báo
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (!user) return res.status(404).json({ message: "User không tồn tại" });
+
+            if (action === 'APPROVE') {
+                // NẾU ĐỒNG Ý: Cập nhật status và cấp quyền vào tòa nhà
+                await prisma.$transaction(async (tx) => {
+                    await tx.user.update({
+                        where: { id: userId },
+                        data: { status: 'APPROVED', requestedBuildingId: null }
+                    });
+
+                    await tx.userBuilding.create({
+                        data: { userId: userId, buildingId: user.requestedBuildingId }
+                    });
+                });
+                // Gửi email báo thành công
+                await import('../../config/mail.service.js').then(m => m.sendApprovalEmail(user.email, true, user.username));
+
+                res.json({ message: "Đã phê duyệt tài khoản!" });
+
+            } else {
+                // ===============================================
+                // NẾU TỪ CHỐI: Xóa Vĩnh Viễn Khỏi Database
+                // ===============================================
+
+                // 1. Vẫn gửi email báo từ chối trước khi xóa
+                await import('../../config/mail.service.js').then(m => m.sendApprovalEmail(user.email, false, user.username));
+
+                // 2. XÓA HARD-DELETE USER KHỎI MYSQL
+                await prisma.user.delete({
+                    where: { id: userId }
+                });
+
+                res.json({ message: "Đã từ chối và xóa tài khoản!" });
+            }
+        } catch (error) {
+            console.error("Lỗi duyệt tài khoản:", error);
+            res.status(500).json({ message: "Lỗi xử lý hệ thống" });
+        }
+    },
+
+    //3. API Lấy danh sách tài khoản đang chờ duyệt (Dành cho Super Admin)
+    getPendingUsers: async (req, res) => {
+        try {
+            if (req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ message: "Không có quyền" });
+
+            const pendingUsers = await prisma.user.findMany({
+                where: { status: 'PENDING' },
+                select: { id: true, username: true, fullName: true, email: true, requestedBuildingId: true, createdAt: true }
+            });
+
+            const usersWithBuildingInfo = await Promise.all(pendingUsers.map(async (u) => {
+                let bInfo = null;
+                if (u.requestedBuildingId) {
+                    bInfo = await prisma.building.findUnique({
+                        where: { id: u.requestedBuildingId },
+                        select: { name: true, code: true }
+                    });
+                }
+                return { ...u, requestedBuilding: bInfo };
+            }));
+
+            res.json(usersWithBuildingInfo);
+        } catch (error) {
+            res.status(500).json({ message: "Lỗi hệ thống" });
+        }
+    },
+
+
     // 1.API: Đăng ký 
     register: async (req, res) => {
         try {
@@ -97,6 +225,10 @@ export const AuthController = {
 
             if (!user) return res.status(404).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
+            if (user.status === 'PENDING') return res.status(403).json({ message: "Tài khoản của bạn đang chờ Super Admin phê duyệt!" });
+            if (user.status === 'REJECTED') return res.status(403).json({ message: "Tài khoản của bạn đã bị từ chối phê duyệt!" });
+            if (user.status === 'LOCKED') return res.status(403).json({ message: "Tài khoản của bạn đã bị khóa! Vui lòng liên hệ Super Admin." });
+
             const isMatch = await bcrypt.compare(password, user.password);
             if (!isMatch) return res.status(400).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
@@ -104,7 +236,7 @@ export const AuthController = {
             let buildingInfo = null;
             if (user.role === 'BUILDING_ADMIN' && user.managedBuildings.length > 0) {
                 const b = user.managedBuildings[0].building;
-                buildingInfo = { id: b.id, code: b.code, name: b.name };
+                buildingInfo = { id: b.id, code: b.code, name: b.name, address: b.address };
             }
 
             const token = jwt.sign(
@@ -119,6 +251,35 @@ export const AuthController = {
             });
         } catch (error) {
             res.status(500).json({ error: error.message });
+        }
+    },
+
+    // API Khóa / Mở khóa tài khoản (Dành cho Super Admin)
+    toggleLockStatus: async (req, res) => {
+        try {
+            if (req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ message: "Không có quyền thực hiện" });
+
+            const userId = parseInt(req.params.id);
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+
+            if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+            if (user.role === 'SUPER_ADMIN') return res.status(400).json({ message: "Không thể khóa tài khoản Super Admin!" });
+
+            // Đảo ngược trạng thái (Đang Khóa -> Mở, Đang Mở -> Khóa)
+            const newStatus = user.status === 'LOCKED' ? 'APPROVED' : 'LOCKED';
+
+            await prisma.user.update({
+                where: { id: userId },
+                data: { status: newStatus }
+            });
+
+            res.json({
+                message: newStatus === 'LOCKED' ? "Đã khóa tài khoản!" : "Đã mở khóa tài khoản!",
+                status: newStatus
+            });
+        } catch (error) {
+            console.error("Lỗi khóa tài khoản:", error);
+            res.status(500).json({ message: "Lỗi hệ thống" });
         }
     },
 

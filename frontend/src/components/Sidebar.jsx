@@ -40,6 +40,7 @@ const Sidebar = () => {
             { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
             { name: 'Lịch sử dữ liệu', path: '/history', icon: History },
             { name: 'Bảng Điều khiển', path: '/control', icon: Sliders },
+            { name: 'Thông tin cơ sở', path: '/info', icon: Building2 },
         ];
     }
 

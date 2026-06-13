@@ -141,8 +141,28 @@ export default function HistoryPage() {
         (d.name && d.name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    // Cấu hình hiển thị cho Tab đang được chọn
-    const activeConfig = selectedField ? (fieldConfig[selectedField] || { name: selectedField, unit: "", icon: Activity, color: "#3b82f6" }) : null;
+    // HÀM XỬ LÝ ĐỘNG TÊN THÔNG SỐ THEO TỪNG LOẠI THIẾT BỊ
+    const getDynamicFieldConfig = (field, device) => {
+        // Lấy cấu hình gốc từ fieldConfig
+        let config = fieldConfig[field] ? { ...fieldConfig[field] } : { name: field, unit: "", icon: Activity, color: "#3b82f6" };
+
+        // Ghi đè logic thông minh cho trường "temperature"
+        if (field === 'temperature' && device) {
+            if (device.type === 'AHU') {
+                config.name = "Nhiệt độ phòng";
+                config.color = "#ff9955"; // Chuyển sang màu cam cho nhiệt độ phòng
+            } else if (device.type === 'PIPE') {
+                config.name = "Nhiệt độ nước";
+                config.color = "#38bdf8"; // Xanh dương cho nước
+            } else {
+                config.name = "Nhiệt độ";
+            }
+        }
+        return config;
+    };
+
+    // Cấu hình hiển thị cho Tab đang được chọn (Áp dụng hàm mới)
+    const activeConfig = selectedField ? getDynamicFieldConfig(selectedField, selectedDevice) : null;
     const isStatusField = selectedField ? ['power', 'fault', 'auto_mode', 'auto-mode', 'state', 'flow_status'].includes(selectedField) : false;
 
     // HÀM XUẤT DỮ LIỆU RA FILE CSV (ĐỌC ĐƯỢC BẰNG EXCEL)
@@ -321,7 +341,7 @@ export default function HistoryPage() {
                                 <div className="flex bg-slate-800/50 p-1.5 rounded-xl border border-slate-800/80 overflow-x-auto w-full custom-scrollbar">
                                     {availableFields.map(field => {
                                         const isActive = selectedField === field;
-                                        const btnConfig = fieldConfig[field] || { name: field, icon: Activity };
+                                        const btnConfig = getDynamicFieldConfig(field, selectedDevice);
                                         const Icon = btnConfig.icon;
 
                                         return (

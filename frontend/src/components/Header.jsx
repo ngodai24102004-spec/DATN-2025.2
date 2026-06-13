@@ -1,13 +1,15 @@
 import { useEffect, useState, useContext } from 'react';
 import { NotificationContext } from '../context/NotificationContext';
-import { getProfileApi, updateNameApi } from '../services/auth.service';
+// --- ĐÃ THÊM 2 API MỚI VÀO DÒNG NÀY ---
+import { getProfileApi, updateNameApi, getPendingUsersApi, handleApprovalApi } from '../services/auth.service';
 import { AuthContext } from '../context/AuthContext';
 
 import {
-    Bell, MoreVertical, User, MapPin, Settings as SettingsIcon,
-    X, Calendar, Shield, Trash2, AlertTriangle,
-    Wifi, WifiOff, Clock,
-    Sun, Cloud, CloudRain, CloudSun, CloudLightning
+  Bell, MoreVertical, User, MapPin, Settings as SettingsIcon,
+  X, Calendar, Shield, Trash2, AlertTriangle,
+  Wifi, WifiOff, Clock,
+  Sun, Cloud, CloudRain, CloudSun, CloudLightning,
+  UserPlus, Check // --- ĐÃ THÊM ICON MỚI VÀO ĐÂY ---
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -219,7 +221,7 @@ const headerStyles = `
 .ch-noti-dropdown {
   position: absolute;
   right: 0; top: calc(100% + 10px);
-  width: 340px;
+  width: 380px; /* --- ĐÃ MỞ RỘNG TỪ 340px -> 380px CHO ĐẸP MẮT TABS --- */
   background: #070f1f;
   border: 1px solid #1a3a5c;
   border-radius: 14px;
@@ -232,6 +234,21 @@ const headerStyles = `
   from { opacity: 0; transform: translateY(-6px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* --- BỔ SUNG CSS CHO TABS VÀ NÚT DUYỆT TÀI KHOẢN --- */
+.ch-noti-tabs { display: flex; border-bottom: 1px solid #1a3a5c; background: #0a1628; }
+.ch-noti-tab { flex: 1; padding: 12px; text-align: center; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #4a6a8a; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 6px;}
+.ch-noti-tab.active { color: #fff; background: rgba(0,170,255,0.05); border-bottom-color: #00aaff; }
+.ch-noti-tab-badge { background: #ff3c5a; color: white; border-radius: 10px; padding: 1px 6px; font-size: 9px; font-weight: bold; }
+
+.ch-approval-actions { display: flex; gap: 8px; margin-top: 10px; }
+.ch-btn-approve { flex: 1; padding: 6px; background: rgba(0,229,160,0.15); border: 1px solid #00e5a0; color: #00e5a0; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s;}
+.ch-btn-approve:hover { background: #00e5a0; color: #000; }
+.ch-btn-reject { flex: 1; padding: 6px; background: rgba(255,60,90,0.15); border: 1px solid #ff3c5a; color: #ff3c5a; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s;}
+.ch-btn-reject:hover { background: #ff3c5a; color: #fff; }
+.ch-noti-icon.info { background: rgba(0,170,255,0.12); border-color: rgba(0,170,255,0.2); color: #00aaff; animation: none; }
+/* --------------------------------------------------- */
+
 .ch-noti-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 14px 16px;
@@ -644,354 +661,459 @@ const headerStyles = `
 `;
 
 if (typeof document !== 'undefined' && !document.getElementById('cyber-header-styles')) {
-    const el = document.createElement('style');
-    el.id = 'cyber-header-styles';
-    el.textContent = headerStyles;
-    document.head.appendChild(el);
+  const el = document.createElement('style');
+  el.id = 'cyber-header-styles';
+  el.textContent = headerStyles;
+  document.head.appendChild(el);
 }
 
 const Header = () => {
-    const { user } = useContext(AuthContext);
-    const { notifications, clearAll, socket } = useContext(NotificationContext);
+  const { user } = useContext(AuthContext);
+  const { notifications, clearAll, socket } = useContext(NotificationContext);
 
-    const [isOnline, setIsOnline] = useState(false);
-    const [weather, setWeather] = useState({ temp: '--', label: 'Đang tải...', icon: <CloudSun size={14} style={{ color: '#ffb800' }} /> });
-    const [now, setNow] = useState(new Date());
+  const [isOnline, setIsOnline] = useState(false);
+  const [weather, setWeather] = useState({ temp: '--', label: 'Đang tải...', icon: <CloudSun size={14} style={{ color: '#ffb800' }} /> });
+  const [now, setNow] = useState(new Date());
 
-    const [showDropdown, setShowDropdown] = useState(false);
-    const [showNoti, setShowNoti] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showNoti, setShowNoti] = useState(false);
 
-    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-    const [profileData, setProfileData] = useState(null);
-    const [loadingProfile, setLoadingProfile] = useState(false);
+  // --- BỔ SUNG: STATE CHO TABS CHUÔNG ---
+  const [notiTab, setNotiTab] = useState('alarms');
+  const [pendingUsers, setPendingUsers] = useState([]);
 
-    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-    const [newName, setNewName] = useState(user?.fullName || "");
-    const [isUpdating, setIsUpdating] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileData, setProfileData] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
-    const activeFaultsCount = notifications.length;
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [newName, setNewName] = useState(user?.fullName || "");
+  const [isUpdating, setIsUpdating] = useState(false);
 
-    useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
+  // --- BỔ SUNG: LOGIC LẤY DANH SÁCH DUYỆT TÀI KHOẢN KHI MỚI VÀO ---
+  useEffect(() => {
+    if (user?.role === 'SUPER_ADMIN') {
+      getPendingUsersApi()
+        .then(data => setPendingUsers(data))
+        .catch(err => console.error("Lỗi lấy danh sách chờ duyệt", err));
+    }
+  }, [user?.role]);
 
-    const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    const dateStr = now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  // --- BỔ SUNG: LẮNG NGHE SOCKET KHI CÓ NGƯỜI ĐĂNG KÝ MỚI ---
+  useEffect(() => {
+    if (!socket || user?.role !== 'SUPER_ADMIN') return;
 
-    const handleShowProfile = async () => {
-        setShowDropdown(false);
-        setLoadingProfile(true);
-        try {
-            const data = await getProfileApi();
-            setProfileData(data);
-            setIsProfileModalOpen(true);
-        } catch (error) {
-            console.error("Lỗi lấy profile:", error);
-            toast.error("Không thể tải thông tin tài khoản!");
-        } finally {
-            setLoadingProfile(false);
-        }
+    const handleNewReg = (newUser) => {
+      setPendingUsers(prev => [newUser, ...prev]);
+      toast.success(`Có yêu cầu tài khoản mới từ ${newUser.fullName}!`, { icon: '👤' });
+      setNotiTab('approvals'); // Tự động bật sang tab Duyệt
     };
 
-    const handleUpdateName = async (e) => {
-        e.preventDefault();
-        setIsUpdating(true);
-        try {
-            const result = await updateNameApi(newName);
-            const updatedUser = { ...user, fullName: result.user.fullName };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-            window.location.reload();
-            toast.success("Cập nhật tên thành công!");
-            setIsSettingsModalOpen(false);
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Lỗi khi cập nhật");
-        } finally {
-            setIsUpdating(false);
-        }
+    socket.on("new-registration", handleNewReg);
+    return () => socket.off("new-registration", handleNewReg);
+  }, [socket, user?.role]);
+
+  // --- BỔ SUNG: HÀM XỬ LÝ BẤM NÚT ĐỒNG Ý / TỪ CHỐI ---
+  const handleApprovalSubmit = async (userId, action) => {
+    try {
+      await handleApprovalApi({ userId, action });
+      setPendingUsers(prev => prev.filter(u => u.id !== userId));
+      toast.success(action === 'APPROVE' ? "Đã duyệt cấp quyền!" : "Đã từ chối yêu cầu!");
+    } catch (error) {
+      toast.error("Xử lý thất bại. Vui lòng thử lại!");
+    }
+  };
+
+  const activeFaultsCount = notifications.length;
+  // --- BỔ SUNG: TỔNG SỐ THÔNG BÁO CHO CHUÔNG ---
+  const totalNotiCount = activeFaultsCount + pendingUsers.length;
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const dateStr = now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const handleShowProfile = async () => {
+    setShowDropdown(false);
+    setLoadingProfile(true);
+    try {
+      const data = await getProfileApi();
+      setProfileData(data);
+      setIsProfileModalOpen(true);
+    } catch (error) {
+      console.error("Lỗi lấy profile:", error);
+      toast.error("Không thể tải thông tin tài khoản!");
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const handleUpdateName = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    try {
+      const result = await updateNameApi(newName);
+      const updatedUser = { ...user, fullName: result.user.fullName };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      window.location.reload();
+      toast.success("Cập nhật tên thành công!");
+      setIsSettingsModalOpen(false);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Lỗi khi cập nhật");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!socket) return;
+    setIsOnline(socket.connected);
+    socket.on("connect", () => setIsOnline(true));
+    socket.on("disconnect", () => setIsOnline(false));
+    return () => {
+      socket.off("connect");
+      socket.off("disconnect");
     };
+  }, [socket]);
 
-    useEffect(() => {
-        if (!socket) return;
-        setIsOnline(socket.connected);
-        socket.on("connect", () => setIsOnline(true));
-        socket.on("disconnect", () => setIsOnline(false));
-        return () => {
-            socket.off("connect");
-            socket.off("disconnect");
-        };
-    }, [socket]);
+  const fetchWeather = async () => {
+    try {
+      const response = await axios.get(
+        'https://api.open-meteo.com/v1/forecast?latitude=21.0285&longitude=105.8542&current=temperature_2m,weather_code'
+      );
+      const { temperature_2m, weather_code } = response.data.current;
+      const weatherMapping = (code) => {
+        if (code === 0) return { label: 'Trời quang', icon: <Sun size={14} style={{ color: '#ffb800' }} /> };
+        if (code <= 3) return { label: 'Ít mây', icon: <CloudSun size={14} style={{ color: '#ffaa00' }} /> };
+        if (code <= 48) return { label: 'Có sương', icon: <Cloud size={14} style={{ color: '#6a8aa0' }} /> };
+        if (code <= 67) return { label: 'Đang mưa', icon: <CloudRain size={14} style={{ color: '#55aaff' }} /> };
+        if (code <= 99) return { label: 'Có dông', icon: <CloudLightning size={14} style={{ color: '#aa55ff' }} /> };
+        return { label: 'U ám', icon: <Cloud size={14} style={{ color: '#4a6a8a' }} /> };
+      };
+      const result = weatherMapping(weather_code);
+      setWeather({ temp: Math.round(temperature_2m), label: result.label, icon: result.icon });
+    } catch (error) {
+      console.error("Lỗi lấy thời tiết:", error);
+    }
+  };
 
-    const fetchWeather = async () => {
-        try {
-            const response = await axios.get(
-                'https://api.open-meteo.com/v1/forecast?latitude=21.0285&longitude=105.8542&current=temperature_2m,weather_code'
-            );
-            const { temperature_2m, weather_code } = response.data.current;
-            const weatherMapping = (code) => {
-                if (code === 0) return { label: 'Trời quang', icon: <Sun size={14} style={{ color: '#ffb800' }} /> };
-                if (code <= 3) return { label: 'Ít mây', icon: <CloudSun size={14} style={{ color: '#ffaa00' }} /> };
-                if (code <= 48) return { label: 'Có sương', icon: <Cloud size={14} style={{ color: '#6a8aa0' }} /> };
-                if (code <= 67) return { label: 'Đang mưa', icon: <CloudRain size={14} style={{ color: '#55aaff' }} /> };
-                if (code <= 99) return { label: 'Có dông', icon: <CloudLightning size={14} style={{ color: '#aa55ff' }} /> };
-                return { label: 'U ám', icon: <Cloud size={14} style={{ color: '#4a6a8a' }} /> };
-            };
-            const result = weatherMapping(weather_code);
-            setWeather({ temp: Math.round(temperature_2m), label: result.label, icon: result.icon });
-        } catch (error) {
-            console.error("Lỗi lấy thời tiết:", error);
-        }
-    };
+  useEffect(() => {
+    fetchWeather();
+    const interval = setInterval(fetchWeather, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-    useEffect(() => {
-        fetchWeather();
-        const interval = setInterval(fetchWeather, 30 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, []);
+  return (
+    <>
+      <header className="ch-header ml-72">
+        {/* LEFT: Location */}
+        <div className="ch-location">
+          <MapPin size={13} />
+          <span>{user?.building?.address || user?.building?.name || 'Toàn hệ thống quản trị'}</span>
+        </div>
 
-    return (
-        <>
-            <header className="ch-header ml-72">
-                {/* LEFT: Location */}
-                <div className="ch-location">
-                    <MapPin size={13} />
-                    <span>{user?.building?.name || 'Toàn hệ thống quản trị'}</span>
-                </div>
+        {/* RIGHT: Widgets + User */}
+        <div className="ch-widgets">
 
-                {/* RIGHT: Widgets + User */}
-                <div className="ch-widgets">
+          {/* Clock */}
+          <div className="ch-widget">
+            <div className="ch-widget-icon">
+              <Clock size={14} style={{ color: '#00aaff' }} />
+            </div>
+            <div>
+              <div className="ch-clock-time">{timeStr}</div>
+              <div className="ch-clock-date">{dateStr}</div>
+            </div>
+          </div>
 
-                    {/* Clock */}
-                    <div className="ch-widget">
-                        <div className="ch-widget-icon">
-                            <Clock size={14} style={{ color: '#00aaff' }} />
+          {/* Weather */}
+          <div className="ch-widget">
+            <div className="ch-widget-icon" style={{ background: 'rgba(255,184,0,0.08)', borderColor: 'rgba(255,184,0,0.15)' }}>
+              {weather.icon}
+            </div>
+            <div>
+              <div className="ch-weather-label">Outdoor Temp</div>
+              <div className="ch-weather-val">
+                <span className="ch-weather-temp">{weather.temp}°C</span>
+                <span className="ch-weather-desc">• {weather.label}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Server status */}
+          <div className={`ch-server ${isOnline ? 'online' : 'offline'}`}>
+            {isOnline
+              ? <Wifi size={14} style={{ color: '#00e5a0' }} />
+              : <WifiOff size={14} style={{ color: '#ff3c5a' }} />
+            }
+            <div>
+              <div className="ch-server-label">Server</div>
+              <div className="ch-server-status">{isOnline ? 'Connected' : 'Disconnected'}</div>
+            </div>
+            {isOnline && <div className="ch-server-dot" />}
+          </div>
+
+          <div className="ch-divider" />
+
+          {/* Bell */}
+          <div style={{ position: 'relative' }}>
+            <button
+              className={`ch-bell-btn ${showNoti ? 'active' : ''}`}
+              onClick={() => setShowNoti(!showNoti)}
+            >
+              <Bell size={16} />
+              {/* --- BỔ SUNG: THAY BẰNG TOTAL NOTI COUNT --- */}
+              {totalNotiCount > 0 && (
+                <span className="ch-bell-badge">{totalNotiCount}</span>
+              )}
+            </button>
+
+            {showNoti && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowNoti(false)} />
+                <div className="ch-noti-dropdown">
+
+                  {/* --- BỔ SUNG: 2 NÚT TABS --- */}
+                  <div className="ch-noti-tabs">
+                    <button className={`ch-noti-tab ${notiTab === 'alarms' ? 'active' : ''}`} onClick={() => setNotiTab('alarms')}>
+                      Cảnh báo {activeFaultsCount > 0 && <span className="ch-noti-tab-badge">{activeFaultsCount}</span>}
+                    </button>
+
+                    {/* Chỉ Super Admin mới thấy Tab Chờ duyệt */}
+                    {user?.role === 'SUPER_ADMIN' && (
+                      <button className={`ch-noti-tab ${notiTab === 'approvals' ? 'active' : ''}`} onClick={() => setNotiTab('approvals')}>
+                        Chờ duyệt {pendingUsers.length > 0 && <span className="ch-noti-tab-badge" style={{ background: '#00aaff' }}>{pendingUsers.length}</span>}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* TAB 1: CẢNH BÁO THIẾT BỊ (BỌC BỞI ĐIỀU KIỆN notiTab) */}
+                  {notiTab === 'alarms' && (
+                    <>
+                      <div className="ch-noti-header">
+                        <div className="ch-noti-title">
+                          <AlertTriangle size={14} /> Cảnh báo hiện hành
                         </div>
-                        <div>
-                            <div className="ch-clock-time">{timeStr}</div>
-                            <div className="ch-clock-date">{dateStr}</div>
-                        </div>
-                    </div>
-
-                    {/* Weather */}
-                    <div className="ch-widget">
-                        <div className="ch-widget-icon" style={{ background: 'rgba(255,184,0,0.08)', borderColor: 'rgba(255,184,0,0.15)' }}>
-                            {weather.icon}
-                        </div>
-                        <div>
-                            <div className="ch-weather-label">Outdoor Temp</div>
-                            <div className="ch-weather-val">
-                                <span className="ch-weather-temp">{weather.temp}°C</span>
-                                <span className="ch-weather-desc">• {weather.label}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Server status */}
-                    <div className={`ch-server ${isOnline ? 'online' : 'offline'}`}>
-                        {isOnline
-                            ? <Wifi size={14} style={{ color: '#00e5a0' }} />
-                            : <WifiOff size={14} style={{ color: '#ff3c5a' }} />
-                        }
-                        <div>
-                            <div className="ch-server-label">Server</div>
-                            <div className="ch-server-status">{isOnline ? 'Connected' : 'Disconnected'}</div>
-                        </div>
-                        {isOnline && <div className="ch-server-dot" />}
-                    </div>
-
-                    <div className="ch-divider" />
-
-                    {/* Bell */}
-                    <div style={{ position: 'relative' }}>
-                        <button
-                            className={`ch-bell-btn ${showNoti ? 'active' : ''}`}
-                            onClick={() => setShowNoti(!showNoti)}
-                        >
-                            <Bell size={16} />
-                            {activeFaultsCount > 0 && (
-                                <span className="ch-bell-badge">{activeFaultsCount}</span>
-                            )}
-                        </button>
-
-                        {showNoti && (
-                            <>
-                                <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowNoti(false)} />
-                                <div className="ch-noti-dropdown">
-                                    <div className="ch-noti-header">
-                                        <div className="ch-noti-title">
-                                            <AlertTriangle size={14} /> Cảnh báo hiện hành
-                                        </div>
-                                        {notifications.length > 0 && (
-                                            <button className="ch-noti-clear" onClick={clearAll} title="Ẩn tất cả">
-                                                <Trash2 size={14} />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="ch-noti-list">
-                                        {notifications.length === 0 ? (
-                                            <div className="ch-noti-empty">
-                                                <Shield size={36} style={{ color: '#00e5a0', opacity: 0.3 }} />
-                                                <span className="ch-noti-empty-label">Hệ thống an toàn</span>
-                                            </div>
-                                        ) : (
-                                            notifications.map(n => (
-                                                <div key={n.code} className="ch-noti-item">
-                                                    <div className="ch-noti-icon">
-                                                        <AlertTriangle size={16} />
-                                                    </div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div className="ch-noti-name">
-                                                            {n.details?.name} <span>({n.code})</span> đang báo sự cố!
-                                                        </div>
-                                                        <div className="ch-noti-detail">
-                                                            <div className="ch-noti-detail-row">
-                                                                <span className="ch-noti-detail-key">Vị trí</span>
-                                                                <span className="ch-noti-detail-val">{n.details?.location || 'N/A'}</span>
-                                                            </div>
-                                                            {user?.role === 'SUPER_ADMIN' && (
-                                                                <>
-                                                                    <div className="ch-noti-detail-row">
-                                                                        <span className="ch-noti-detail-key">Cơ sở</span>
-                                                                        <span className="ch-noti-detail-val" style={{ color: '#5599ff' }}>{n.details?.buildingName}</span>
-                                                                    </div>
-                                                                    <div className="ch-noti-detail-row">
-                                                                        <span className="ch-noti-detail-key">Quản lý</span>
-                                                                        <span className="ch-noti-detail-val" style={{ color: '#00e5a0' }}>{n.details?.managerName}</span>
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                        <div className="ch-noti-time">Cập nhật: <strong>{n.time}</strong></div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </>
+                        {notifications.length > 0 && (
+                          <button className="ch-noti-clear" onClick={clearAll} title="Ẩn tất cả">
+                            <Trash2 size={14} />
+                          </button>
                         )}
-                    </div>
-
-                    {/* User */}
-                    <div className="ch-user-area">
-                        <div className="ch-user-info">
-                            <div className="ch-user-name">{user?.fullName}</div>
-                            <div className="ch-user-role">{user?.role}</div>
-                        </div>
-                        <div className="ch-avatar">{user?.fullName?.charAt(0).toUpperCase()}</div>
-                        <button
-                            className={`ch-more-btn ${showDropdown ? 'active' : ''}`}
-                            onClick={() => setShowDropdown(!showDropdown)}
-                        >
-                            <MoreVertical size={15} />
-                        </button>
-
-                        {showDropdown && (
-                            <>
-                                <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowDropdown(false)} />
-                                <div className="ch-account-dropdown">
-                                    <button className="ch-account-btn" onClick={handleShowProfile} disabled={loadingProfile}>
-                                        <User size={14} />
-                                        {loadingProfile ? 'Đang tải...' : 'Thông tin tài khoản'}
-                                    </button>
-                                    <button className="ch-account-btn" onClick={() => { setIsSettingsModalOpen(true); setNewName(user?.fullName || ""); setShowDropdown(false); }}>
-                                        <SettingsIcon size={14} /> Cài đặt cá nhân
-                                    </button>
+                      </div>
+                      <div className="ch-noti-list">
+                        {notifications.length === 0 ? (
+                          <div className="ch-noti-empty">
+                            <Shield size={36} style={{ color: '#00e5a0', opacity: 0.3 }} />
+                            <span className="ch-noti-empty-label">Hệ thống an toàn</span>
+                          </div>
+                        ) : (
+                          notifications.map(n => (
+                            <div key={n.code} className="ch-noti-item">
+                              <div className="ch-noti-icon">
+                                <AlertTriangle size={16} />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div className="ch-noti-name">
+                                  {n.details?.name} <span>({n.code})</span> đang báo sự cố!
                                 </div>
-                            </>
+                                <div className="ch-noti-detail">
+                                  <div className="ch-noti-detail-row">
+                                    <span className="ch-noti-detail-key">Vị trí</span>
+                                    <span className="ch-noti-detail-val">{n.details?.location || 'N/A'}</span>
+                                  </div>
+                                  {user?.role === 'SUPER_ADMIN' && (
+                                    <>
+                                      <div className="ch-noti-detail-row">
+                                        <span className="ch-noti-detail-key">Cơ sở</span>
+                                        <span className="ch-noti-detail-val" style={{ color: '#5599ff' }}>{n.details?.buildingName}</span>
+                                      </div>
+                                      <div className="ch-noti-detail-row">
+                                        <span className="ch-noti-detail-key">Quản lý</span>
+                                        <span className="ch-noti-detail-val" style={{ color: '#00e5a0' }}>{n.details?.managerName}</span>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="ch-noti-time">Cập nhật: <strong>{n.time}</strong></div>
+                              </div>
+                            </div>
+                          ))
                         )}
-                    </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* --- BỔ SUNG: TAB 2 - YÊU CẦU CẤP QUYỀN TÀI KHOẢN --- */}
+                  {notiTab === 'approvals' && user?.role === 'SUPER_ADMIN' && (
+                    <>
+                      <div className="ch-noti-header">
+                        <div className="ch-weather-label" style={{ color: '#00aaff', fontSize: '10px' }}><UserPlus size={12} style={{ display: 'inline', marginBottom: '-2px' }} /> Yêu cầu tham gia hệ thống</div>
+                      </div>
+                      <div className="ch-noti-list custom-scrollbar">
+                        {pendingUsers.length === 0 ? (
+                          <div className="ch-noti-empty"><Shield size={32} style={{ color: '#00aaff', opacity: 0.3 }} /><span className="ch-noti-empty-label" style={{ color: '#00aaff' }}>Không có yêu cầu nào</span></div>
+                        ) : (
+                          pendingUsers.map(u => (
+                            <div key={u.id} className="ch-noti-item">
+                              <div className="ch-noti-icon info"><UserPlus size={16} /></div>
+                              <div style={{ flex: 1 }}>
+                                <div className="ch-noti-name" style={{ color: '#fff' }}>
+                                  {u.fullName} <span style={{ color: '#00aaff' }}>@{u.username}</span>
+                                </div>
+                                <div className="ch-noti-detail">
+                                  <div className="ch-noti-detail-row"><span className="ch-noti-detail-key">Email</span><span className="ch-noti-detail-val" style={{ textTransform: 'none' }}>{u.email}</span></div>
+                                  <div className="ch-noti-detail-row">
+                                    <span className="ch-noti-detail-key">Cơ sở xin cấp quyền</span>
+                                    <span className="ch-noti-detail-val" style={{ color: '#00e5a0' }}>
+                                      {u.requestedBuilding ? `${u.requestedBuilding.name} (${u.requestedBuilding.code})` : 'N/A'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="ch-approval-actions">
+                                  <button onClick={() => handleApprovalSubmit(u.id, 'APPROVE')} className="ch-btn-approve">
+                                    <Check size={12} /> Phê duyệt
+                                  </button>
+                                  <button onClick={() => handleApprovalSubmit(u.id, 'REJECT')} className="ch-btn-reject">
+                                    <X size={12} /> Từ chối
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+
                 </div>
-            </header>
-
-            {/* ===== MODAL CHI TIẾT TÀI KHOẢN ===== */}
-            {isProfileModalOpen && (
-                <div className="ch-modal-overlay">
-                    <div className="ch-modal-backdrop" onClick={() => setIsProfileModalOpen(false)} />
-                    <div className="ch-modal">
-                        <div className="ch-modal-hero">
-                            <div className="ch-modal-hero-top">
-                                <span className="ch-modal-hero-title">Thông tin tài khoản</span>
-                                <button className="ch-modal-close" onClick={() => setIsProfileModalOpen(false)}><X size={16} /></button>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <div className="ch-modal-avatar">{profileData?.fullName?.charAt(0).toUpperCase()}</div>
-                                <span className="ch-modal-username">{profileData?.fullName}</span>
-                            </div>
-                        </div>
-
-                        <div className="ch-modal-body">
-                            <div className="ch-modal-grid">
-                                <div className="ch-modal-field">
-                                    <div className="ch-modal-field-label"><Shield size={10} /> Vai trò hệ thống</div>
-                                    <div className="ch-modal-field-val">{profileData?.role}</div>
-                                </div>
-                                <div className="ch-modal-field">
-                                    <div className="ch-modal-field-label"><Calendar size={10} /> Ngày tham gia</div>
-                                    <div className="ch-modal-field-val">
-                                        {profileData?.createdAt ? new Date(profileData.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {profileData?.managedBuildings?.length > 0 && (
-                                <div className="ch-modal-field">
-                                    <div className="ch-modal-field-label"><MapPin size={10} /> Cơ sở quản lý trực tiếp</div>
-                                    <div className="ch-modal-building">
-                                        <div className="ch-modal-building-name">{profileData.managedBuildings[0].building.name}</div>
-                                        <div className="ch-modal-building-addr">{profileData.managedBuildings[0].building.address || 'Chưa cập nhật địa chỉ'}</div>
-                                        <div className="ch-modal-building-code">Mã: {profileData.managedBuildings[0].building.code}</div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {profileData?.role === 'SUPER_ADMIN' && (
-                                <div className="ch-modal-superadmin">
-                                    <div className="ch-modal-superadmin-title">Quản trị viên toàn quyền</div>
-                                    <div className="ch-modal-superadmin-desc">Tài khoản có quyền truy cập tất cả các cơ sở trong hệ thống.</div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="ch-modal-footer">
-                            <button className="ch-btn-secondary" onClick={() => setIsProfileModalOpen(false)}>Đóng</button>
-                            <button className="ch-btn-danger" onClick={() => { localStorage.clear(); window.location.href = '/login'; }}>Đăng xuất</button>
-                        </div>
-                    </div>
-                </div>
+              </>
             )}
+          </div>
 
-            {/* ===== MODAL CÀI ĐẶT CÁ NHÂN ===== */}
-            {isSettingsModalOpen && (
-                <div className="ch-modal-overlay">
-                    <div className="ch-modal-backdrop" onClick={() => setIsSettingsModalOpen(false)} />
-                    <div className="ch-settings-modal">
-                        <div className="ch-settings-header">
-                            <span className="ch-settings-title">Cài đặt cá nhân</span>
-                            <button className="ch-modal-close" onClick={() => setIsSettingsModalOpen(false)}><X size={16} /></button>
-                        </div>
-                        <form onSubmit={handleUpdateName} className="ch-settings-form">
-                            <div>
-                                <label className="ch-settings-label">Thay đổi họ và tên</label>
-                                <input
-                                    type="text"
-                                    className="ch-settings-input"
-                                    value={newName}
-                                    onChange={(e) => setNewName(e.target.value)}
-                                />
-                            </div>
-                            <div style={{ display: 'flex', gap: '10px', paddingTop: '4px' }}>
-                                <button type="button" className="ch-btn-secondary" style={{ flex: 1 }} onClick={() => setIsSettingsModalOpen(false)}>Hủy</button>
-                                <button type="submit" className="ch-btn-primary" style={{ flex: 2 }} disabled={isUpdating}>
-                                    {isUpdating ? 'Đang lưu...' : 'Lưu thay đổi'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+          {/* User */}
+          <div className="ch-user-area">
+            <div className="ch-user-info">
+              <div className="ch-user-name">{user?.fullName}</div>
+              <div className="ch-user-role">{user?.role}</div>
+            </div>
+            <div className="ch-avatar">{user?.fullName?.charAt(0).toUpperCase()}</div>
+            <button
+              className={`ch-more-btn ${showDropdown ? 'active' : ''}`}
+              onClick={() => setShowDropdown(!showDropdown)}
+            >
+              <MoreVertical size={15} />
+            </button>
+
+            {showDropdown && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setShowDropdown(false)} />
+                <div className="ch-account-dropdown">
+                  <button className="ch-account-btn" onClick={handleShowProfile} disabled={loadingProfile}>
+                    <User size={14} />
+                    {loadingProfile ? 'Đang tải...' : 'Thông tin tài khoản'}
+                  </button>
+                  <button className="ch-account-btn" onClick={() => { setIsSettingsModalOpen(true); setNewName(user?.fullName || ""); setShowDropdown(false); }}>
+                    <SettingsIcon size={14} /> Cài đặt cá nhân
+                  </button>
                 </div>
+              </>
             )}
-        </>
-    );
+          </div>
+        </div>
+      </header>
+
+      {/* ===== MODAL CHI TIẾT TÀI KHOẢN ===== */}
+      {isProfileModalOpen && (
+        <div className="ch-modal-overlay">
+          <div className="ch-modal-backdrop" onClick={() => setIsProfileModalOpen(false)} />
+          <div className="ch-modal">
+            <div className="ch-modal-hero">
+              <div className="ch-modal-hero-top">
+                <span className="ch-modal-hero-title">Thông tin tài khoản</span>
+                <button className="ch-modal-close" onClick={() => setIsProfileModalOpen(false)}><X size={16} /></button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <div className="ch-modal-avatar">{profileData?.fullName?.charAt(0).toUpperCase()}</div>
+                <span className="ch-modal-username">{profileData?.fullName}</span>
+              </div>
+            </div>
+
+            <div className="ch-modal-body">
+              <div className="ch-modal-grid">
+                <div className="ch-modal-field">
+                  <div className="ch-modal-field-label"><Shield size={10} /> Vai trò hệ thống</div>
+                  <div className="ch-modal-field-val">{profileData?.role}</div>
+                </div>
+                <div className="ch-modal-field">
+                  <div className="ch-modal-field-label"><Calendar size={10} /> Ngày tham gia</div>
+                  <div className="ch-modal-field-val">
+                    {profileData?.createdAt ? new Date(profileData.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                  </div>
+                </div>
+              </div>
+
+              {profileData?.managedBuildings?.length > 0 && (
+                <div className="ch-modal-field">
+                  <div className="ch-modal-field-label"><MapPin size={10} /> Cơ sở quản lý trực tiếp</div>
+                  <div className="ch-modal-building">
+                    <div className="ch-modal-building-name">{profileData.managedBuildings[0].building.name}</div>
+                    <div className="ch-modal-building-addr">{profileData.managedBuildings[0].building.address || 'Chưa cập nhật địa chỉ'}</div>
+                    <div className="ch-modal-building-code">Mã: {profileData.managedBuildings[0].building.code}</div>
+                  </div>
+                </div>
+              )}
+
+              {profileData?.role === 'SUPER_ADMIN' && (
+                <div className="ch-modal-superadmin">
+                  <div className="ch-modal-superadmin-title">Quản trị viên toàn quyền</div>
+                  <div className="ch-modal-superadmin-desc">Tài khoản có quyền truy cập tất cả các cơ sở trong hệ thống.</div>
+                </div>
+              )}
+            </div>
+
+            <div className="ch-modal-footer">
+              <button className="ch-btn-secondary" onClick={() => setIsProfileModalOpen(false)}>Đóng</button>
+              <button className="ch-btn-danger" onClick={() => { localStorage.clear(); window.location.href = '/login'; }}>Đăng xuất</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== MODAL CÀI ĐẶT CÁ NHÂN ===== */}
+      {isSettingsModalOpen && (
+        <div className="ch-modal-overlay">
+          <div className="ch-modal-backdrop" onClick={() => setIsSettingsModalOpen(false)} />
+          <div className="ch-settings-modal">
+            <div className="ch-settings-header">
+              <span className="ch-settings-title">Cài đặt cá nhân</span>
+              <button className="ch-modal-close" onClick={() => setIsSettingsModalOpen(false)}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleUpdateName} className="ch-settings-form">
+              <div>
+                <label className="ch-settings-label">Thay đổi họ và tên</label>
+                <input
+                  type="text"
+                  className="ch-settings-input"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', paddingTop: '4px' }}>
+                <button type="button" className="ch-btn-secondary" style={{ flex: 1 }} onClick={() => setIsSettingsModalOpen(false)}>Hủy</button>
+                <button type="submit" className="ch-btn-primary" style={{ flex: 2 }} disabled={isUpdating}>
+                  {isUpdating ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
 };
 
 export default Header;

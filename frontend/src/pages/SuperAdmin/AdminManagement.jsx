@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getBuildingAdminsApi, deleteUserApi, updateUserApi } from '../../services/auth.service';
-import { Users, Search, RefreshCw, MapPin, UserCheck, CalendarDays, Trash2, AlertTriangle, Home, Edit, Lock, X } from 'lucide-react';
+import { Users, Search, RefreshCw, MapPin, UserCheck, CalendarDays, Trash2, AlertTriangle, Home, Edit, Lock, Unlock, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function AdminManagement() {
@@ -154,120 +154,115 @@ export default function AdminManagement() {
                             <tbody>
                                 {filteredAdmins.length === 0 ? (
                                     <tr>
-                                        <td colSpan="4" style={{ padding: '60px', textAlign: 'center' }}>
+                                        <td colSpan="5" style={{ padding: '60px', textAlign: 'center' }}>
                                             <p className="cyber-empty">— KHÔNG TÌM THẤY TÀI KHOẢN NÀO —</p>
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredAdmins.map((admin) => (
-                                        <tr key={admin.id} style={{ borderBottom: '1px solid rgba(26,58,92,0.5)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,170,255,0.05)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                                    filteredAdmins.map((admin) => {
+                                        // Kiểm tra xem user này có đang bị khóa không
+                                        const isLocked = admin.status === 'LOCKED';
 
-                                            {/* HỌ VÀ TÊN */}
-                                            <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>
-                                                {admin.fullName}
-                                            </td>
+                                        return (
+                                            <tr key={admin.id} style={{ borderBottom: '1px solid rgba(26,58,92,0.5)', transition: 'background 0.2s', opacity: isLocked ? 0.6 : 1 }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,170,255,0.05)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
 
-                                            {/* USERNAME */}
-                                            <td style={{ padding: '16px 24px' }}>
-                                                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', fontWeight: 700, color: 'var(--cyber-blue)', background: 'rgba(0,170,255,0.1)', border: '1px solid rgba(0,170,255,0.2)', padding: '4px 10px', borderRadius: '6px' }}>
-                                                    @{admin.username}
-                                                </span>
-                                            </td>
-
-                                            {/* CƠ SỞ QUẢN LÝ */}
-                                            <td style={{ padding: '16px 24px' }}>
-                                                {admin.managedBuildings.length > 0 ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                        {admin.managedBuildings.map(mb => (
-                                                            <div key={mb.building.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <Home size={12} style={{ color: 'var(--cyber-green)' }} />
-                                                                <span style={{ fontSize: '13px', color: '#aaffdd', fontWeight: 600 }}>{mb.building.name}</span>
-                                                            </div>
-                                                        ))}
+                                                {/* HỌ VÀ TÊN (Thêm badge Bị khóa) */}
+                                                <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: 700, color: isLocked ? '#94a3b8' : '#ffffff' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ textDecoration: isLocked ? 'line-through' : 'none' }}>{admin.fullName}</span>
+                                                        {isLocked && <span style={{ fontSize: '9px', background: 'rgba(255,184,0,0.15)', color: '#ffb800', border: '1px solid rgba(255,184,0,0.3)', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.05em' }}>ĐÃ KHÓA</span>}
                                                     </div>
-                                                ) : (
-                                                    <span style={{ fontSize: '11px', background: 'rgba(255,60,90,0.15)', color: 'var(--cyber-red)', border: '1px solid rgba(255,60,90,0.3)', padding: '4px 10px', borderRadius: '6px', fontWeight: 700 }}>CHƯA PHÂN CÔNG</span>
-                                                )}
-                                            </td>
+                                                </td>
 
-                                            {/* NGÀY CẤP */}
-                                            <td style={{ padding: '16px 24px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--cyber-text-dim)', fontSize: '12px', fontFamily: "'IBM Plex Mono', monospace" }}>
-                                                    <CalendarDays size={14} />
-                                                    {new Date(admin.createdAt).toLocaleDateString('vi-VN')}
-                                                </div>
-                                            </td>
+                                                {/* USERNAME */}
+                                                <td style={{ padding: '16px 24px' }}>
+                                                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '12px', fontWeight: 700, color: isLocked ? '#64748b' : 'var(--cyber-blue)', background: isLocked ? 'rgba(255,255,255,0.05)' : 'rgba(0,170,255,0.1)', border: `1px solid ${isLocked ? 'rgba(255,255,255,0.1)' : 'rgba(0,170,255,0.2)'}`, padding: '4px 10px', borderRadius: '6px' }}>
+                                                        @{admin.username}
+                                                    </span>
+                                                </td>
 
-                                            {/* CỘT THAO TÁC */}
-                                            <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                                                {/* CƠ SỞ QUẢN LÝ */}
+                                                <td style={{ padding: '16px 24px' }}>
+                                                    {admin.managedBuildings.length > 0 ? (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            {admin.managedBuildings.map(mb => (
+                                                                <div key={mb.building.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <Home size={12} style={{ color: isLocked ? '#64748b' : 'var(--cyber-green)' }} />
+                                                                    <span style={{ fontSize: '13px', color: isLocked ? '#94a3b8' : '#aaffdd', fontWeight: 600 }}>{mb.building.name}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ fontSize: '11px', background: 'rgba(255,60,90,0.15)', color: 'var(--cyber-red)', border: '1px solid rgba(255,60,90,0.3)', padding: '4px 10px', borderRadius: '6px', fontWeight: 700 }}>CHƯA PHÂN CÔNG</span>
+                                                    )}
+                                                </td>
 
-                                                    {/* NÚT CHỈNH SỬA (EDITION) */}
-                                                    <button
-                                                        onClick={() => handleOpenEditUser(admin)}
-                                                        className="cyber-action-btn"
-                                                        style={{
-                                                            background: 'rgba(0, 170, 255, 0.08)',
-                                                            border: '1px solid rgba(0, 170, 255, 0.3)',
-                                                            color: 'var(--cyber-blue)',
-                                                            padding: '8px',
-                                                            borderRadius: '10px',
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.3s ease',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center'
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            e.currentTarget.style.background = 'rgba(0, 170, 255, 0.2)';
-                                                            e.currentTarget.style.boxShadow = '0 0 15px rgba(0, 170, 255, 0.4)';
-                                                            e.currentTarget.style.transform = 'translateY(-2px)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.currentTarget.style.background = 'rgba(0, 170, 255, 0.08)';
-                                                            e.currentTarget.style.boxShadow = 'none';
-                                                            e.currentTarget.style.transform = 'translateY(0)';
-                                                        }}
-                                                        title="Chỉnh sửa thông tin"
-                                                    >
-                                                        <Edit size={16} strokeWidth={2.5} />
-                                                    </button>
+                                                {/* NGÀY CẤP */}
+                                                <td style={{ padding: '16px 24px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--cyber-text-dim)', fontSize: '12px', fontFamily: "'IBM Plex Mono', monospace" }}>
+                                                        <CalendarDays size={14} />
+                                                        {new Date(admin.createdAt).toLocaleDateString('vi-VN')}
+                                                    </div>
+                                                </td>
 
-                                                    {/* NÚT XÓA (DELETION) */}
-                                                    <button
-                                                        onClick={() => handleDeleteUser(admin.id, admin.username)}
-                                                        className="cyber-action-btn"
-                                                        style={{
-                                                            background: 'rgba(255, 60, 90, 0.08)',
-                                                            border: '1px solid rgba(255, 60, 90, 0.3)',
-                                                            color: 'var(--cyber-red)',
-                                                            padding: '8px',
-                                                            borderRadius: '10px',
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.3s ease',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center'
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            e.currentTarget.style.background = 'rgba(255, 60, 90, 0.2)';
-                                                            e.currentTarget.style.boxShadow = '0 0 15px rgba(255, 60, 90, 0.4)';
-                                                            e.currentTarget.style.transform = 'translateY(-2px)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.currentTarget.style.background = 'rgba(255, 60, 90, 0.08)';
-                                                            e.currentTarget.style.boxShadow = 'none';
-                                                            e.currentTarget.style.transform = 'translateY(0)';
-                                                        }}
-                                                        title="Xóa tài khoản vĩnh viễn"
-                                                    >
-                                                        <Trash2 size={16} strokeWidth={2.5} />
-                                                    </button>
+                                                {/* CỘT THAO TÁC */}
+                                                <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
 
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                        {/* 1. NÚT CHỈNH SỬA */}
+                                                        <button
+                                                            onClick={() => handleOpenEditUser(admin)}
+                                                            className="cyber-action-btn"
+                                                            style={{ background: 'rgba(0, 170, 255, 0.08)', border: '1px solid rgba(0, 170, 255, 0.3)', color: 'var(--cyber-blue)', padding: '8px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                            title="Chỉnh sửa thông tin"
+                                                        >
+                                                            <Edit size={14} strokeWidth={2.5} />
+                                                        </button>
+
+                                                        {/* 2. NÚT KHÓA / MỞ KHÓA TÀI KHOẢN (THÊM MỚI Ở ĐÂY) */}
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    // Gọi API từ thư viện vừa tạo
+                                                                    const { toggleLockUserApi } = await import('../../services/auth.service.js');
+                                                                    const res = await toggleLockUserApi(admin.id);
+
+                                                                    // Cập nhật giao diện tại chỗ ngay lập tức
+                                                                    setAdmins(prev => prev.map(a => a.id === admin.id ? { ...a, status: res.status } : a));
+                                                                    toast.success(res.message);
+                                                                } catch (err) {
+                                                                    // Bóc tách lỗi từ Backend gửi về để hiện lên UI
+                                                                    const errorMsg = err.response?.data?.message || "Không thể thay đổi trạng thái!";
+                                                                    toast.error(errorMsg);
+                                                                }
+                                                            }}
+                                                            className="cyber-action-btn"
+                                                            style={{
+                                                                background: isLocked ? 'rgba(0, 229, 160, 0.08)' : 'rgba(255, 184, 0, 0.08)',
+                                                                border: `1px solid ${isLocked ? 'rgba(0, 229, 160, 0.3)' : 'rgba(255, 184, 0, 0.3)'}`,
+                                                                color: isLocked ? 'var(--cyber-green)' : 'var(--cyber-amber)',
+                                                                padding: '8px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s'
+                                                            }}
+                                                            title={isLocked ? "Mở khóa tài khoản" : "Khóa tài khoản (Cấm đăng nhập)"}
+                                                        >
+                                                            {isLocked ? <Unlock size={14} strokeWidth={2.5} /> : <Lock size={14} strokeWidth={2.5} />}
+                                                        </button>
+
+                                                        {/* 3. NÚT XÓA */}
+                                                        <button
+                                                            onClick={() => handleDeleteUser(admin.id, admin.username)}
+                                                            className="cyber-action-btn"
+                                                            style={{ background: 'rgba(255, 60, 90, 0.08)', border: '1px solid rgba(255, 60, 90, 0.3)', color: 'var(--cyber-red)', padding: '8px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                            title="Xóa tài khoản vĩnh viễn"
+                                                        >
+                                                            <Trash2 size={14} strokeWidth={2.5} />
+                                                        </button>
+
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

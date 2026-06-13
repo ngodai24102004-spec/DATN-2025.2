@@ -5,7 +5,11 @@ import { verifyToken } from '../middlewares/auth.middleware.js';
 const router = express.Router();
 
 router.post('/register', AuthController.register);
+router.post('/request-register', AuthController.requestRegistration);
+router.post('/handle-approval', verifyToken, AuthController.handleApproval);
+router.get('/pending-users', verifyToken, AuthController.getPendingUsers);
 router.post('/login', AuthController.login);
+router.put('/users/:id/lock', verifyToken, AuthController.toggleLockStatus);
 router.get('/profile', verifyToken, AuthController.getProfile);
 router.put('/profile/name', verifyToken, AuthController.updateProfileName);
 router.get('/building-admins', verifyToken, AuthController.getBuildingAdmins);

@@ -7,6 +7,7 @@ import Login from './pages/Auth/Login';
 import Dashboard from './pages/BuildingAdmin/Dashboard';
 import HistoryPage from './pages/BuildingAdmin/History';
 import ControlPanel from './pages/BuildingAdmin/ControlPanel';
+import BuildingInfo from './pages/BuildingAdmin/BuildingInfo';
 import ProtectedRoute from './route/ProtectedRoute';
 import './styles/App.css';
 import { NotificationProvider } from './context/NotificationContext';
@@ -71,6 +72,17 @@ function App() {
                 <MainLayout>
                   <ProtectedRoute>
                     <ControlPanel />
+                  </ProtectedRoute>
+                </MainLayout>
+              }
+            />
+
+            <Route
+              path="/info"
+              element={
+                <MainLayout>
+                  <ProtectedRoute>
+                    <BuildingInfo />
                   </ProtectedRoute>
                 </MainLayout>
               }

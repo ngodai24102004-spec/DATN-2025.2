@@ -559,16 +559,19 @@ export default function Dashboard() {
                         <Building2 size={22} style={{ color: '#55aaff' }} />
                     </div>
                     <div>
-                        <h1 className="cyber-title" style={{ fontSize: '18px', margin: 0 }}>Hệ Thống BMS Trung Tâm</h1>
+                        <h1 className="cyber-title" style={{ fontSize: '18px', margin: 0, textTransform: 'uppercase' }}>
+                            {user?.building?.name || 'HỆ THỐNG BMS TRUNG TÂM'}
+                        </h1>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-                            <span style={{ fontSize: '11px', color: 'var(--cyber-text-dim)', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: "'IBM Plex Mono', monospace" }}><MapPin size={10} /> {user?.building?.name || 'Local Station'}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--cyber-text-dim)', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: "'IBM Plex Mono', monospace" }}>
+                                <MapPin size={10} /> {user?.building?.address || 'Chưa cập nhật địa chỉ'}
+                            </span>
                             <span className="cyber-badge-live"><RefreshCw size={9} className="spin-fast" /> LIVE</span>
                         </div>
                     </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {/* BỎ ĐIỀU KIỆN LÀ CHILLER PLANT, CHO PHÉP HIỆN Ở MỌI PHÂN HỆ */}
                     <div className="cyber-btn-toggle">
                         <button className={`cyber-btn-view ${viewMode === '2D' ? 'active' : ''}`} onClick={() => setViewMode('2D')}><Layers size={13} strokeWidth={2.5} /> SCADA 2D</button>
                         <button className={`cyber-btn-view ${viewMode === '3D' ? 'active' : ''}`} onClick={() => setViewMode('3D')}><Box size={13} strokeWidth={2.5} /> 3D TWIN</button>
