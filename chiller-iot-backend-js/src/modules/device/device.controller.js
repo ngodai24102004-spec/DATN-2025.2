@@ -150,9 +150,9 @@ export const DeviceController = {
                 return res.status(403).json({ message: "Không có quyền điều khiển thiết bị này" });
             }
 
-            // 2. Khởi tạo Payload và Topic theo bảng tài liệu của bạn
+            // 2. Khởi tạo Payload và Topic
             let topicSuffix = "";
-            let payload = []; // Chuyển thành dạng MẢNG để gửi cho EBO
+            let payload = []; // Dạng MẢNG
 
             switch (type) {
                 // --- NHÓM CHILLER TRUNG TÂM ---
@@ -187,7 +187,7 @@ export const DeviceController = {
                     payload = [{ code: code, state: command.state ? 1 : 0 }];
                     break;
                 case 'LIGHT_DIMMER':
-                    topicSuffix = "light/dimmer_light/set"; // Topic cho dimmer theo tài liệu của bạn
+                    topicSuffix = "light/dimmer_light/set";
                     payload = [{ code: code, state: command.state ? 1 : 0, brightness: parseFloat(command.brightness) || 0 }];
                     break;
                 case 'DOMESTIC_PUMP':
@@ -203,7 +203,6 @@ export const DeviceController = {
                     return res.status(400).json({ message: `Loại thiết bị [${type}] chưa được cấu hình lệnh điều khiển.` });
             }
 
-            // Tạo chuỗi Topic hoàn chỉnh
             const topic = `yoo/yootek/${topicSuffix}`;
 
             // 3. Publish lệnh xuống MQTT Broker
@@ -213,15 +212,58 @@ export const DeviceController = {
                 });
             });
 
-            // 4. Lưu lại lịch sử ai đã điều khiển vào MySQL
-            await prisma.controlLog.create({
+            // ===============================================
+            // 4. CHỐNG SPAM CLICK: DỌN SẠCH CÁC LỆNH ĐANG CHỜ CŨ
+            // ===============================================
+            await prisma.controlLog.updateMany({
+                where: {
+                    device_code: code,
+                    status: 'SENT'
+                },
+                data: {
+                    status: 'OVERRIDDEN',
+                    completed_at: new Date()
+                }
+            });
+
+            // 5. TẠO BẢN GHI MỚI DUY NHẤT
+            const savedLog = await prisma.controlLog.create({
                 data: {
                     device_code: code,
                     user_id: user.id,
-                    command_payload: payload, // Lưu dạng mảng
+                    command_payload: payload,
                     status: 'SENT'
                 }
             });
+
+            // ===============================================
+            // 6. BỘ ĐẾM NGƯỢC 1 GIÂY (TIMEOUT CHECKER)
+            // ===============================================
+            setTimeout(async () => {
+                try {
+                    const checkLog = await prisma.controlLog.findUnique({ where: { id: savedLog.id } });
+
+                    // Nếu sau 1s mà lệnh này VẪN LÀ 'SENT'
+                    if (checkLog && checkLog.status === 'SENT') {
+                        // Cập nhật ĐÍCH DANH ID đó thành TIMEOUT
+                        await prisma.controlLog.update({
+                            where: { id: savedLog.id },
+                            data: { status: 'TIMEOUT' }
+                        });
+
+                        console.log(`⏰ [TIMEOUT] Thiết bị ${code} không phản hồi sau 1 giây!`);
+
+                        import('../../config/socket.js').then(m => {
+                            const io = m.getIo();
+                            io.to(`building-${device.buildingId}`).emit("command-timeout", { name: device.name || code });
+                            io.to("super_admin_room").emit("command-timeout", { name: device.name || code });
+                        });
+                    }
+                } catch (err) {
+                    console.error("Lỗi trong quá trình kiểm tra Timeout:", err.message);
+                }
+            }, 1000);
+            // ===============================================
 
             console.log(`🕹️ [CONTROL] User ${user.id} gửi lệnh tới ${code}:`, payload);
 

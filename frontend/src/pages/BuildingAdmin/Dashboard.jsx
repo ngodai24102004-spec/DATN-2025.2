@@ -792,7 +792,23 @@ export default function Dashboard() {
                                 </select>
                             </div>
 
-                            <div className="cyber-form-group"><label className="cyber-form-label">Vị trí lắp đặt vật lý</label><input className="cyber-input" type="text" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} placeholder="Ví dụ: Tầng hầm B2" /></div>
+                            <div className="cyber-form-group">
+                                <label className="cyber-form-label">Vị trí tầng lắp đặt (Location)</label>
+                                <select
+                                    className="cyber-select"
+                                    required
+                                    value={formData.location}
+                                    onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                >
+                                    <option value="" disabled>-- Chọn tầng trong không gian 3D --</option>
+                                    <option value="Tầng hầm">Tầng hầm (B1)</option>
+                                    <option value="Tầng 1">Tầng 1</option>
+                                    <option value="Tầng 2">Tầng 2</option>
+                                    <option value="Tầng 3">Tầng 3</option>
+                                    <option value="Tầng 4">Tầng 4</option>
+                                    <option value="Tầng thượng">Tầng thượng / Mái</option>
+                                </select>
+                            </div>
                             <div className="cyber-form-actions"><button type="button" className="cyber-btn-cancel" onClick={() => setIsModalOpen(false)}>Hủy</button><button type="submit" className="cyber-btn-submit">Lưu thiết bị</button></div>
                         </form>
                     </div>

@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # 1. DATABASE MYSQL
+  mysql-db:
+    image: mysql:8.0
+    container_name: bms_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Dai24102004@#
+      MYSQL_DATABASE: chiller_iot
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql # Lưu dữ liệu vĩnh viễn không bị mất khi xóa container
+
+  # 2. BACKEND NODE.JS
+  backend:
+    build: ./chiller-iot-backend-js
+    container_name: bms_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # Thay localhost bằng mysql-db (tên container ở trên)
+      - DATABASE_URL=mysql://root:Dai24102004%40%23@mysql-db:3306/chiller_iot
+      - PORT=3000
+      # Để Docker truy cập InfluxDB chạy ở ngoài máy tính của bạn (Windows/Mac)
+      - INFLUX_URL=http://host.docker.internal:8086 
+      - INFLUX_TOKEN=cZcq6Fs2ehvdqE2o5W5mGCLbQ0TeOC7iMeDCnW2lCzC9bLa_ayreemoHbjzLUiRKvxS5mK9W-6fd9kCEJWrP8A==
+      - INFLUX_ORG=Yootek_DATN
+      - INFLUX_BUCKET=Chiller_Data
+      - JWT_SECRET=YooTek_DATN_Secret_Key_2024_@#!
+      - MQTT_BROKER_URL=wss://217013a922994e8da5fe7f3b7602d3ac.s1.eu.hivemq.cloud:8884/mqtt
+      - MQTT_USERNAME=Smarthome1
+      - MQTT_PASSWORD=Dai24102004@#
+      - EMAIL_USER=ngodai24102004@gmail.com
+      - EMAIL_PASS=gefj aqfn bqkp dvwb
+    depends_on:
+      - mysql-db # Chờ MySQL chạy lên rồi Backend mới được chạy
+
+  # 3. FRONTEND REACT (VITE)
+  frontend:
+    build: ./frontend
+    container_name: bms_frontend
+    restart: always
+    ports:
+      - "5173:80" # Map port 80 của Nginx ra port 5173 quen thuộc của bạn
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

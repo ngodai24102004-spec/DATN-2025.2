@@ -141,7 +141,7 @@ client.on('connect', () => {
         client.publish(FAN_TOPIC, JSON.stringify([deviceMemory["FAN_T1"], deviceMemory["FAN_T2"]]));
         console.log(`💧 [${now}] PUMP & FAN    | Gửi 2 Bơm sinh hoạt & 2 Quạt thông gió\n`);
 
-    }, 5000);
+    }, 20000);
 });
 
 // ==========================================
@@ -150,32 +150,57 @@ client.on('connect', () => {
 client.on('message', (topic, message) => {
     try {
         const commandArray = JSON.parse(message.toString());
-        const command = commandArray[0]; // Lấy object đầu tiên trong mảng
+        const command = commandArray[0];
         const code = command.code;
 
         console.log(`\n⚡ [BẮT ĐƯỢC LỆNH] Từ topic: ${topic}`);
         console.log(`📥 Lệnh yêu cầu cho [${code}]:`, command);
 
-        // Kiểm tra xem thiết bị có trong bộ nhớ không
         if (deviceMemory[code]) {
-            // Cập nhật bộ nhớ với dữ liệu lệnh mới (Ghi đè)
-            deviceMemory[code] = { ...deviceMemory[code], ...command };
-
-            // Tìm đúng topic phản hồi (GET/RESPONSE) tương ứng
             const responseTopic = TOPIC_MAP[topic];
 
-            if (responseTopic) {
-                // Tạo gói tin phản hồi mang đúng dữ liệu vừa thay đổi
-                const responsePayload = [deviceMemory[code]];
+            // TẠO SỐ NGẪU NHIÊN TỪ 0 ĐẾN 1 ĐỂ QUYẾT ĐỊNH KỊCH BẢN
+            const randomChance = Math.random();
 
-                // Publish phản hồi NGAY LẬP TỨC để Backend kiểm tra
-                client.publish(responseTopic, JSON.stringify(responsePayload));
-                console.log(`📤 [PHẢN HỒI] Trả trạng thái thực tế về topic: ${responseTopic}\n`);
+            if (randomChance < 0.10) {
+                // ====================================================
+                // KỊCH BẢN 1 (70%): THÀNH CÔNG (Phản hồi nhanh + Khớp)
+                // ====================================================
+                console.log(`✅ [KỊCH BẢN 1] Thực thi thành công. Cập nhật phần cứng...`);
+                deviceMemory[code] = { ...deviceMemory[code], ...command }; // Ghi đè bộ nhớ
+
+                if (responseTopic) {
+                    setTimeout(() => {
+                        client.publish(responseTopic, JSON.stringify([deviceMemory[code]]));
+                        console.log(`   📤 Phản hồi trạng thái MỚI: ${responseTopic}\n`);
+                    }, 300); // Phản hồi siêu tốc sau 0.3 giây
+                }
+
+            } else if (randomChance < 0.85) {
+                // ====================================================
+                // KỊCH BẢN 2 (15%): LỖI CƠ HỌC (Phản hồi nhanh + Không khớp)
+                // ====================================================
+                console.log(`❌ [KỊCH BẢN 2] Lỗi kẹt cơ học! Thiết bị từ chối đổi trạng thái.`);
+                // KHÔNG CẬP NHẬT BỘ NHỚ -> Dữ liệu trả về sẽ bị sai lệch so với lệnh
+
+                if (responseTopic) {
+                    setTimeout(() => {
+                        client.publish(responseTopic, JSON.stringify([deviceMemory[code]]));
+                        console.log(`   📤 Phản hồi trạng thái CŨ: ${responseTopic}\n`);
+                    }, 300);
+                }
+
+            } else {
+                // ====================================================
+                // KỊCH BẢN 3 (15%): MẤT KẾT NỐI (Timeout - Im lặng)
+                // ====================================================
+                console.log(`⚠️ [KỊCH BẢN 3] Đứt mạng hiện trường! Thiết bị im lặng hoàn toàn.\n`);
+                // KHÔNG LÀM GÌ CẢ. Để Backend tự chờ và báo Timeout.
             }
-        } else {
-            console.log(`⚠️ Không tìm thấy thiết bị [${code}] trong bộ nhớ giả lập. (Nhớ thêm trên Web nhé)\n`);
-        }
 
+        } else {
+            console.log(`⚠️ Không tìm thấy thiết bị [${code}].\n`);
+        }
     } catch (err) {
         console.error("❌ Lỗi parse lệnh MQTT:", err.message);
     }

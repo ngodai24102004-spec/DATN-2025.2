@@ -8,38 +8,47 @@ export const DeviceService = {
     // HÀM KIỂM TRA FEEDBACK COMMAND
     checkAndCompleteCommand: async (deviceCode, currentState) => {
         try {
-            // 1. Tìm lệnh điều khiển MỚI NHẤT đang ở trạng thái 'SENT' của thiết bị này
-            const pendingLog = await prisma.controlLog.findFirst({
+            // 1. TẠO BỘ LỌC THỜI GIAN (Chỉ quan tâm lệnh gửi trong 2 giây qua)
+            const twoSecondsAgo = new Date(Date.now() - 2000);
+
+            // 2. Tìm tất cả các lệnh đang chờ (SENT) của thiết bị này
+            const pendingLogs = await prisma.controlLog.findMany({
                 where: {
                     device_code: deviceCode,
-                    status: 'SENT'
+                    status: 'SENT',
+                    created_at: { gte: twoSecondsAgo } // Loại bỏ các lệnh bị kẹt từ lâu
                 },
-                orderBy: { created_at: 'desc' }
+                orderBy: { created_at: 'desc' } // Sắp xếp mới nhất lên đầu
             });
 
-            if (!pendingLog) return; // Không có lệnh nào đang chờ thì thôi
+            // Nếu không có lệnh nào đang chờ -> Bỏ qua
+            if (pendingLogs.length === 0) return;
 
-            // 2. LẤY PAYLOAD AN TOÀN (Tương thích cả Object cũ và Array mới)
-            let rawPayload = pendingLog.command_payload;
+            // 3. BÓC TÁCH: Lệnh mới nhất và Các lệnh cũ bị spam (Nhấp đúp chuột)
+            const latestLog = pendingLogs[0]; // Lệnh số 1 (Mới nhất)
+            const olderLogs = pendingLogs.slice(1); // Các lệnh số 2, 3... (Bị spam)
 
-            // Nếu lưu trong DB là dạng chuỗi JSON thì bóc nó ra
-            if (typeof rawPayload === 'string') {
-                rawPayload = JSON.parse(rawPayload);
+            // 4. XỬ LÝ LỆNH SPAM: Cập nhật thành OVERRIDDEN (Bị ghi đè)
+            if (olderLogs.length > 0) {
+                const olderIds = olderLogs.map(log => log.id);
+                await prisma.controlLog.updateMany({
+                    where: { id: { in: olderIds } }, // Chỉ cập nhật các ID bị spam
+                    data: { status: 'OVERRIDDEN', completed_at: new Date() }
+                });
+                console.log(`🗑️ [AUDIT] Đã hủy ${olderLogs.length} lệnh cũ của ${deviceCode} do bị ghi đè.`);
             }
 
-            // Xử lý thông minh: Nếu là Mảng thì lấy [0], nếu là Object thì lấy chính nó
+            // 5. LẤY PAYLOAD CỦA LỆNH MỚI NHẤT ĐỂ KIỂM TRA
+            let rawPayload = latestLog.command_payload;
+            if (typeof rawPayload === 'string') rawPayload = JSON.parse(rawPayload);
             const cmd = Array.isArray(rawPayload) ? rawPayload[0] : rawPayload;
-
-            if (!cmd) return; // Bảo vệ an toàn 2 lớp
+            if (!cmd) return;
 
             let isMatched = true;
-
-            // 3. So sánh các trường quan trọng
             const keysToCheck = ['power', 'state', 'speed', 'fan_speed', 'brightness', 'auto-mode', 'auto_mode'];
 
             for (const key of keysToCheck) {
                 if (cmd[key] !== undefined) {
-                    // Dùng toán tử != (khác lỏng lẻo) thay vì !== để tránh lỗi kiểu dữ liệu (số 1 vs chuỗi "1")
                     if (currentState[key] != cmd[key]) {
                         isMatched = false;
                         break;
@@ -47,33 +56,36 @@ export const DeviceService = {
                 }
             }
 
-            // 4. Nếu khớp hoàn toàn -> Cập nhật thành SUCCESS và ghi giờ hoàn thành
+            const newStatus = isMatched ? 'SUCCESS' : 'FAILED';
+
+            // 6. CẬP NHẬT TRẠNG THÁI (Chỉ bắn đích danh vào ID của lệnh mới nhất)
+            const updatedLog = await prisma.controlLog.update({
+                where: {
+                    id: latestLog.id // ĐÂY LÀ CHÌA KHÓA: Chỉ cập nhật duy nhất bản ghi này
+                },
+                data: { status: newStatus, completed_at: new Date() }
+            });
+
+            if (!updatedLog) return;
+
+            // 7. BẮN SOCKET THÔNG BÁO LÊN GIAO DIỆN
+            const deviceInfo = await prisma.device.findUnique({ where: { code: deviceCode } });
+            if (!deviceInfo) return;
+
+            const io = await import('../../config/socket.js').then(m => m.getIo());
+
             if (isMatched) {
-                await prisma.controlLog.update({
-                    where: { id: pendingLog.id },
-                    data: {
-                        status: 'SUCCESS',
-                        completed_at: new Date()
-                    }
-                });
-                console.log(`✅ [FEEDBACK] Lệnh điều khiển ${deviceCode} đã được thiết bị thực thi THÀNH CÔNG!`);
-                // Lấy thông tin thiết bị để gửi Socket thông báo
-                const deviceInfo = await prisma.device.findUnique({ where: { code: deviceCode } });
-                if (deviceInfo) {
-                    const io = getIo();
-                    io.to(`building-${deviceInfo.buildingId}`).emit("command-success", {
-                        code: deviceCode,
-                        name: deviceInfo.name || deviceCode
-                    });
-                    io.to("super_admin_room").emit("command-success", {
-                        code: deviceCode,
-                        name: deviceInfo.name || deviceCode
-                    });
-                }
+                console.log(`✅ [FEEDBACK] Lệnh điều khiển ${deviceCode} THÀNH CÔNG!`);
+                io.to(`building-${deviceInfo.buildingId}`).emit("command-success", { name: deviceInfo.name || deviceCode });
+                io.to("super_admin_room").emit("command-success", { name: deviceInfo.name || deviceCode });
+            } else {
+                console.log(`❌ [FEEDBACK] Dữ liệu phản hồi của ${deviceCode} BỊ SAI LỆCH!`);
+                io.to(`building-${deviceInfo.buildingId}`).emit("command-failed", { name: deviceInfo.name || deviceCode });
+                io.to("super_admin_room").emit("command-failed", { name: deviceInfo.name || deviceCode });
             }
+
         } catch (error) {
-            // Ghi chú lỗi gọn gàng hơn
-            console.error(`⚠️ Lỗi khi kiểm tra Feedback Command cho ${deviceCode}:`, error.message);
+            console.error(`⚠️ Lỗi kiểm tra Feedback Command cho ${deviceCode}:`, error.message);
         }
     },
 
@@ -414,7 +426,6 @@ export const DeviceService = {
     handleAhuData: async (ahuList) => {
         for (const item of ahuList) {
             try {
-                // SỬA: Include đầy đủ thông tin Tòa nhà và Người quản lý
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
                     include: { building: { include: { managers: { include: { user: true } } } } }

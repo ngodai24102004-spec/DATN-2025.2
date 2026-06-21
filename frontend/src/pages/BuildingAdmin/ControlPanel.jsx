@@ -43,7 +43,6 @@ export default function ControlPanel() {
     useEffect(() => {
         if (!socket) return;
 
-        // 1. Lắng nghe cập nhật trạng thái thông thường
         const handleDeviceUpdate = (payload) => {
             setDevices(prevDevices => prevDevices.map(device => {
                 if (device.code.toLowerCase() === payload.code.toLowerCase()) {
@@ -53,21 +52,31 @@ export default function ControlPanel() {
             }));
         };
 
-        // Lắng nghe báo cáo thực thi lệnh thành công từ phần cứng
+        // KỊCH BẢN 1: THÀNH CÔNG (SUCCESS)
         const handleCommandSuccess = (data) => {
-            toast.success(`${data.name} đã thực thi lệnh thành công!`, {
-                duration: 5000,
-                style: { background: 'rgba(0,229,160,0.1)', border: '1px solid #00e5a0', color: '#00e5a0', fontWeight: 'bold' },
-                icon: '✅'
-            });
+            toast.success(`Thiết bị [${data.name}] đã thực thi lệnh thành công!`, { duration: 5000, style: { background: 'rgba(0,229,160,0.1)', border: '1px solid #00e5a0', color: '#00e5a0', fontWeight: 'bold' }, icon: '✅' });
+        };
+
+        // KỊCH BẢN 2: LỖI CƠ HỌC (FAILED)
+        const handleCommandFailed = (data) => {
+            toast.error(`Lỗi: Thiết bị [${data.name}] không thay đổi trạng thái (Kẹt cơ học)!`, { duration: 5000, style: { background: 'rgba(255,60,90,0.1)', border: '1px solid #ff3c5a', color: '#ff3c5a', fontWeight: 'bold' }, icon: '❌' });
+        };
+
+        // KỊCH BẢN 3: TIMEOUT
+        const handleCommandTimeout = (data) => {
+            toast.error(`Lỗi: Mất kết nối đến thiết bị [${data.name}] (Timeout)!`, { duration: 5000, style: { background: 'rgba(255,184,0,0.1)', border: '1px solid #ffb800', color: '#ffb800', fontWeight: 'bold' }, icon: '⚠️' });
         };
 
         socket.on("device-update", handleDeviceUpdate);
-        socket.on("command-success", handleCommandSuccess); // Khai báo lắng nghe
+        socket.on("command-success", handleCommandSuccess);
+        socket.on("command-failed", handleCommandFailed);
+        socket.on("command-timeout", handleCommandTimeout);
 
         return () => {
             socket.off("device-update", handleDeviceUpdate);
-            socket.off("command-success", handleCommandSuccess); // Hủy lắng nghe
+            socket.off("command-success", handleCommandSuccess);
+            socket.off("command-failed", handleCommandFailed);
+            socket.off("command-timeout", handleCommandTimeout);
         };
     }, [socket]);
 
@@ -95,18 +104,23 @@ export default function ControlPanel() {
                     </div>
                 </div>
                 <div className="bg-slate-950 px-6 py-4 flex justify-end gap-3 border-t border-slate-800">
-                    <button onClick={() => toast.dismiss(t.id)} className="px-5 py-2.5 text-slate-400 hover:text-white rounded-xl text-xs font-bold transition-colors uppercase tracking-wider">Hủy</button>
+                    <button onClick={() => toast.dismiss(t.id)} className="px-5 py-2.5 text-slate-400 hover:text-white rounded-xl text-xs font-bold transition-colors uppercase tracking-wider">
+                        Hủy
+                    </button>
                     <button
-                        onClick={async () => {
+                        onClick={async (e) => {
+                            // CHÌA KHÓA Ở ĐÂY: KHÓA NÚT NGAY LẬP TỨC ĐỂ TRÁNH NHẤP ĐÚP
+                            e.currentTarget.disabled = true;
+
                             toast.dismiss(t.id);
                             setProcessingId(device.id);
                             try {
                                 await controlDeviceApi({ deviceId: device.id, code: device.code, type: device.type, command: commandConfig });
-                                toast('Đã phát lệnh! Đang chờ phần cứng phản hồi...', { icon: '⏳', style: { background: '#0a1628', color: '#00aaff', border: '1px solid #1a3a5c' } });
+                                toast.success(`Đã gửi lệnh xuống ${device.code}!`);
                             } catch (error) { toast.error(error.message || "Gửi lệnh thất bại"); }
                             finally { setProcessingId(null); }
                         }}
-                        className={`px-5 py-2.5 text-white rounded-xl text-xs font-black shadow-lg transition-all uppercase tracking-wider flex items-center gap-2 ${hasFault ? 'bg-red-600 hover:bg-red-700 shadow-red-900/50' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/50'}`}
+                        className={`px-5 py-2.5 text-white rounded-xl text-xs font-black shadow-lg transition-all uppercase tracking-wider flex items-center gap-2 ${hasFault ? 'bg-red-600 hover:bg-red-700 shadow-red-900/50' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/50'} disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         <Play size={14} fill="currentColor" /> {hasFault ? 'VẪN THỰC THI' : 'THỰC THI'}
                     </button>

@@ -40,7 +40,6 @@ export default function SuperAdminDashboard() {
         };
     }, []);
 
-    // Hàm định dạng thời gian dạng "Vừa xong", "5 phút trước"...
     const timeAgo = (dateString) => {
         const now = new Date();
         const past = new Date(dateString);
@@ -229,17 +228,23 @@ export default function SuperAdminDashboard() {
                                                 {translatePayload(log.command_payload)}
                                             </div>
 
-                                            {/* Trạng thái Thành công / Lỗi */}
+                                            {/* Trạng thái Thành công / Lỗi / Hủy / Chờ */}
                                             <div className="shrink-0 flex flex-col items-end">
                                                 <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${isSuccess ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' :
                                                     isFailed ? 'text-red-500 bg-red-500/10 border border-red-500/20' :
-                                                        'text-amber-500 bg-amber-500/10 border border-amber-500/20'
+                                                        log.status === 'TIMEOUT' ? 'text-orange-500 bg-orange-500/10 border border-orange-500/20' :
+                                                            log.status === 'OVERRIDDEN' ? 'text-slate-400 bg-slate-800 border border-slate-700' :
+                                                                'text-amber-500 bg-amber-500/10 border border-amber-500/20'
                                                     }`}>
-                                                    {isSuccess ? '✅ ĐÃ THỰC THI (SUCCESS)' : isFailed ? '❌ LỖI (FAILED)' : '⏳ CHỜ THIẾT BỊ (SENT)'}
+                                                    {isSuccess ? '✅ ĐÃ THỰC THI (SUCCESS)' :
+                                                        isFailed ? '❌ LỖI (FAILED)' :
+                                                            log.status === 'TIMEOUT' ? '⚠️ MẤT KẾT NỐI (TIMEOUT)' :
+                                                                log.status === 'OVERRIDDEN' ? '🗑️ ĐÃ BỊ GHI ĐÈ (OVERRIDDEN)' :
+                                                                    '⏳ CHỜ THIẾT BỊ (SENT)'}
                                                 </span>
-                                                {isSuccess && log.completed_at && (
+                                                {(isSuccess || log.status === 'OVERRIDDEN') && log.completed_at && (
                                                     <span className="text-[9px] text-slate-500 mt-1 font-mono">
-                                                        Xong lúc: {new Date(log.completed_at).toLocaleTimeString('vi-VN')}
+                                                        Lúc: {new Date(log.completed_at).toLocaleTimeString('vi-VN')}
                                                     </span>
                                                 )}
                                             </div>

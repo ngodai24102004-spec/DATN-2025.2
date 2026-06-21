@@ -31,7 +31,7 @@ const headerStyles = `
   position: sticky;
   top: 0;
   z-index: 40;
-  margin-left: 256px;
+  margin-left: 288px;
   font-family: 'IBM Plex Sans', sans-serif;
   box-shadow: 0 1px 0 rgba(0,170,255,0.08), 0 4px 20px rgba(0,0,0,0.4);
 }
@@ -838,8 +838,15 @@ const Header = () => {
       <header className="ch-header ml-72">
         {/* LEFT: Location */}
         <div className="ch-location">
-          <MapPin size={13} />
-          <span>{user?.building?.address || user?.building?.name || 'Toàn hệ thống quản trị'}</span>
+          <MapPin size={15} className="shrink-0" />
+          <span>
+            {user?.role === 'SUPER_ADMIN'
+              ? 'TRUNG TÂM QUẢN TRỊ TỔNG (SUPER ADMIN)'
+              : user?.building
+                ? `${user.building.name} ${user.building.address ? `- ${user.building.address}` : ''}`
+                : 'Chưa có dữ liệu cơ sở'
+            }
+          </span>
         </div>
 
         {/* RIGHT: Widgets + User */}

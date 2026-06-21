@@ -281,8 +281,9 @@ export default function HistoryPage() {
                                 const isSelected = selectedDevice?.code === d.code;
                                 const state = d.latest_state || {};
                                 const isFault = state.fault === 1;
-                                const isOnline = d.type === 'VALVE' ? state.state === 1 : d.type === 'PIPE' ? state.flow_status === 1 : state.power === 1;
-
+                                const isOnline = d.type === 'PIPE'
+                                    ? state.flow_status === 1
+                                    : (state.power === 1 || state.state === 1);
                                 return (
                                     <button
                                         key={d.id}

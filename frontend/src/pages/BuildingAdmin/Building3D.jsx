@@ -393,41 +393,57 @@ export default function Building3D({ devices = [] }) {
     };
 
     const mappedDevices = useMemo(() => {
-        // Đếm fallback cho thiết bị không có trong FLOOR_MAP
-        const fallbackCount = {};
+        let count = { TOWER: 0, CPUMP: 0, CHILLER: 0, CHWPUMP: 0, VALVE: 0, OTHER: 0 };
+        const floorItemCount = {}; // Biến đếm để rải đều thiết bị trên cùng 1 tầng tránh đè nhau
 
         return devices.map((dev) => {
-            const mapping = FLOOR_MAP[dev.code];
+            let assignedFloor = null;
+            let posX = 0, posZ = 0;
 
-            let assignedFloor, posX, posZ;
+            // 1. NHẬN DIỆN TẦNG DỰA VÀO CHỮ TRONG CỘT LOCATION
+            const locStr = (dev.location || '').toLowerCase();
 
-            if (mapping) {
-                // ── Thiết bị được gán tầng cứng ──
-                assignedFloor = mapping.floor;
-                posX = mapping.x;
-                posZ = mapping.z;
-            } else {
-                // ── Fallback: thiết bị chưa được khai báo → tự phân tầng theo type ──
-                if (['CHILLER', 'COLDPUMP', 'COOLINGPUMP', 'COOLINGTOWER', 'VALVE', 'PIPE'].includes(dev.type)) {
-                    assignedFloor = 0;
-                } else {
-                    assignedFloor = (dev.id % 4) + 1;
-                }
-                const key = String(assignedFloor);
-                fallbackCount[key] = (fallbackCount[key] || 0) + 1;
-                posX = (fallbackCount[key] * 3) - 9;
-                posZ = 2; // lùi ra phía sau để tránh chồng icon đã gán
+            if (locStr.includes('hầm')) assignedFloor = 0;
+            else if (locStr.includes('thượng') || locStr.includes('mái')) assignedFloor = 'ROOF';
+            else if (locStr.includes('1')) assignedFloor = 1;
+            else if (locStr.includes('2')) assignedFloor = 2;
+            else if (locStr.includes('3')) assignedFloor = 3;
+            else if (locStr.includes('4')) assignedFloor = 4;
+
+            // Nếu location để trống hoặc không có số tầng, dùng logic dự phòng
+            if (assignedFloor === null) {
+                if (['CHILLER', 'COLDPUMP', 'COOLINGPUMP', 'VALVE', 'PIPE'].includes(dev.type)) assignedFloor = 0;
+                else if (dev.type === 'COOLINGTOWER') assignedFloor = 'ROOF';
+                else assignedFloor = 1; // Mặc định vứt lên tầng 1
             }
 
-            // Tính posY dựa trên tầng được gán
-            let posY;
+            // 2. TÍNH TỌA ĐỘ NGANG (X, Z) TRÊN MẶT SÀN
+            if (assignedFloor === 0) {
+                // Riêng tầng hầm: Xếp máy móc thành hàng ngang cho chuyên nghiệp
+                if (dev.type === 'COOLINGTOWER') { posX = -8; posZ = (count.TOWER++ * 2) - 1; }
+                else if (dev.type === 'COOLINGPUMP') { posX = -4; posZ = (count.CPUMP++ * 2) - 1; }
+                else if (dev.type === 'CHILLER') { posX = 0; posZ = (count.CHILLER++ * 2.5) - 1; }
+                else if (dev.type === 'COLDPUMP') { posX = 4; posZ = (count.CHWPUMP++ * 2) - 1; }
+                else { posX = 8; posZ = (count.VALVE++ * 2) - 1; }
+            } else {
+                // Các tầng nổi (Đèn, Quạt, AHU...): Rải đều thành lưới tránh đè lên nhau
+                const floorKey = String(assignedFloor);
+                floorItemCount[floorKey] = (floorItemCount[floorKey] || 0) + 1;
+                const order = floorItemCount[floorKey];
+
+                posX = ((order % 4) * 4) - 6; // Xếp dàn ngang
+                posZ = (Math.floor(order / 4) * 4) - 2; // Hết 4 cái thì xuống hàng
+            }
+
+            // 3. TÍNH CAO ĐỘ (Y) DỰA THEO TẦNG TÌM ĐƯỢC
+            let posY = 0;
             if (assignedFloor === 0) posY = -2.5;
             else if (assignedFloor === 'ROOF') posY = (4 * H) + 1.2;
             else posY = ((assignedFloor - 1) * H) + 1.5;
 
             return { ...dev, assignedFloor, position: [posX, posY, posZ] };
         });
-    }, [devices]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [devices]);
 
     return (
         /*
