@@ -77,11 +77,9 @@ export const DeviceService = {
             if (isMatched) {
                 console.log(`✅ [FEEDBACK] Lệnh điều khiển ${deviceCode} THÀNH CÔNG!`);
                 io.to(`building-${deviceInfo.buildingId}`).emit("command-success", { name: deviceInfo.name || deviceCode });
-                io.to("super_admin_room").emit("command-success", { name: deviceInfo.name || deviceCode });
             } else {
                 console.log(`❌ [FEEDBACK] Dữ liệu phản hồi của ${deviceCode} BỊ SAI LỆCH!`);
                 io.to(`building-${deviceInfo.buildingId}`).emit("command-failed", { name: deviceInfo.name || deviceCode });
-                io.to("super_admin_room").emit("command-failed", { name: deviceInfo.name || deviceCode });
             }
 
         } catch (error) {

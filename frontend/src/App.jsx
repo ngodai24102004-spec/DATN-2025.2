@@ -48,7 +48,7 @@ function App() {
               path="/dashboard"
               element={
                 <MainLayout>
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="BUILDING_ADMIN">
                     <Dashboard />
                   </ProtectedRoute>
                 </MainLayout>
@@ -59,7 +59,7 @@ function App() {
               path="/history"
               element={
                 <MainLayout>
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="BUILDING_ADMIN">
                     <HistoryPage />
                   </ProtectedRoute>
                 </MainLayout>
@@ -70,7 +70,7 @@ function App() {
               path="/control"
               element={
                 <MainLayout>
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="BUILDING_ADMIN">
                     <ControlPanel />
                   </ProtectedRoute>
                 </MainLayout>
@@ -81,7 +81,7 @@ function App() {
               path="/info"
               element={
                 <MainLayout>
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="BUILDING_ADMIN">
                     <BuildingInfo />
                   </ProtectedRoute>
                 </MainLayout>
