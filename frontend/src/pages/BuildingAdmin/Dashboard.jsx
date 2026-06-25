@@ -824,7 +824,23 @@ export default function Dashboard() {
                             {error && <div className="cyber-error"><AlertCircle size={14} />{error}</div>}
                             <div className="cyber-form-group"><label className="cyber-form-label">Mã thiết bị <span style={{ color: 'var(--cyber-red)' }}>*</span></label><input className="cyber-input" type="text" required value={editFormData.code} onChange={e => setEditFormData({ ...editFormData, code: e.target.value })} /><div className="cyber-warning-text">⚠ Đổi mã này yêu cầu cập nhật lại MQTT tại trạm phát.</div></div>
                             <div className="cyber-form-group"><label className="cyber-form-label">Tên hiển thị</label><input className="cyber-input" type="text" value={editFormData.name} onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} /></div>
-                            <div className="cyber-form-group"><label className="cyber-form-label">Vị trí lắp đặt vật lý</label><input className="cyber-input" type="text" value={editFormData.location} onChange={e => setEditFormData({ ...editFormData, location: e.target.value })} /></div>
+                            <div className="cyber-form-group">
+                                <label className="cyber-form-label">Vị trí lắp đặt vật lý (Location)</label>
+                                <select
+                                    className="cyber-select"
+                                    required
+                                    value={editFormData.location}
+                                    onChange={e => setEditFormData({ ...editFormData, location: e.target.value })}
+                                >
+                                    <option value="" disabled>-- Chọn tầng trong không gian 3D --</option>
+                                    <option value="Tầng hầm">Tầng hầm (B1)</option>
+                                    <option value="Tầng 1">Tầng 1</option>
+                                    <option value="Tầng 2">Tầng 2</option>
+                                    <option value="Tầng 3">Tầng 3</option>
+                                    <option value="Tầng 4">Tầng 4</option>
+                                    <option value="Tầng thượng">Tầng thượng / Mái</option>
+                                </select>
+                            </div>
                             <div className="cyber-form-actions"><button type="button" className="cyber-btn-cancel" onClick={() => setIsEditModalOpen(false)}>Hủy</button><button type="submit" className="cyber-btn-submit">Cập nhật</button></div>
                         </form>
                     </div>

@@ -234,7 +234,7 @@ function Environment() {
 }
 
 // ==========================================
-// 7. VẼ ICON THIẾT BỊ – FIX LỖI BỊ CHE KHI ZOOM 90%
+// 7. VẼ ICON THIẾT BỊ 
 // ==========================================
 function DeviceMarker({ device, position, onClick }) {
     const state = device.latest_state || {};
@@ -262,13 +262,6 @@ function DeviceMarker({ device, position, onClick }) {
                 material={new THREE.MeshStandardMaterial({ color: '#475569', metalness: 0.8 })}
             />
 
-            {/*
-             * FIX LỖI ICON BỊ CHE:
-             * - Thêm `prepend` để Html portal ra ngoài canvas DOM (không bị overflow-hidden cắt)
-             * - `distanceFactor={18}` giúp icon scale đều theo zoom
-             * - `occlude={false}` tắt occlusion để luôn hiển thị
-             * - pointerEvents: 'none' trên Html wrapper, pointer-events-auto trên div bên trong
-             */}
             <Html
                 center
                 prepend
