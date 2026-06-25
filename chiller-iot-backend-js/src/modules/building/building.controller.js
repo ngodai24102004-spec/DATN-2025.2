@@ -42,13 +42,17 @@ export const BuildingController = {
             const building = await prisma.building.findUnique({
                 where: { id: buildingId },
                 include: {
-                    // Lấy người quản lý
                     managers: {
                         include: {
                             user: { select: { id: true, fullName: true, username: true, createdAt: true } }
                         }
                     },
-                    // Lấy toàn bộ thiết bị của nhà này
+                    // BỔ SUNG: Truy vấn lấy thêm Phân hệ và danh sách thiết bị thuộc phân hệ đó
+                    subsystems: {
+                        include: {
+                            devices: true
+                        }
+                    },
                     devices: {
                         orderBy: { type: 'asc' }
                     }

@@ -1,16 +1,17 @@
-import axios from 'axios';
-const API_URL = import.meta.env.VITE_API_URL;
-const getAuthHeader = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
+// src/services/subsystem.service.js
+import api from './api'; // 1. Thay thế import axios bằng api instance dùng chung
 
 export const getSubsystemsApi = async () => {
-    const response = await axios.get(`${API_URL}/subsystems/list`, { headers: getAuthHeader() });
+    const response = await api.get('/subsystems/list');
     return response.data;
 };
+
 export const addSubsystemApi = async (data) => {
-    const response = await axios.post(`${API_URL}/subsystems/add`, data, { headers: getAuthHeader() });
+    const response = await api.post('/subsystems/add', data);
     return response.data;
 };
+
 export const deleteSubsystemApi = async (id) => {
-    const response = await axios.delete(`${API_URL}/subsystems/${id}`, { headers: getAuthHeader() });
+    const response = await api.delete(`/subsystems/${id}`);
     return response.data;
 };

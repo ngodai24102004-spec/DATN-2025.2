@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
+import api from '../services/api'; // Thêm dòng import này
 
 export const AuthContext = createContext();
 
@@ -6,7 +7,6 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Kiểm tra xem đã đăng nhập từ trước chưa (khi F5 trang)
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
@@ -15,18 +15,23 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
-    // Hàm gọi khi đăng nhập thành công
-    const loginUser = (userData, token) => {
+    const loginUser = (userData, accessToken) => {
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('token', token);
+        localStorage.setItem('token', accessToken); // Chỉ cần lưu Access Token ở client
     };
 
-    // Hàm đăng xuất
-    const logoutUser = () => {
-        setUser(null);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+    const logoutUser = async () => {
+        try {
+            // Gọi API logout để xóa HttpOnly Cookie phía Backend
+            await api.post('/auth/logout');
+        } catch (err) {
+            console.error("Lỗi gọi API đăng xuất:", err);
+        } finally {
+            setUser(null);
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+        }
     };
 
     return (

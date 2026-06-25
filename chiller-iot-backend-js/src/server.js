@@ -1,6 +1,7 @@
 import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { createServer } from 'http'; // Thêm dòng này
 import { initSocket } from './config/socket.js';
@@ -13,9 +14,14 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app); // Tạo HTTP Server
 const io = initSocket(httpServer); // Khởi tạo Socket.io
-app.use(cors());
+
+app.use(cors({
+    origin: "http://localhost:5173", // Địa chỉ cổng chính xác của Frontend (Vite)
+    credentials: true // Cho phép truyền nhận cookie qua lại giữa 2 cổng
+}));
+
 app.use(express.json());
-// Sử dụng morgan ở chế độ 'dev' (in log có màu sắc dễ nhìn)
+app.use(cookieParser());
 app.use(morgan('dev'));
 
 // Gắn toàn bộ API vào tiền tố /api

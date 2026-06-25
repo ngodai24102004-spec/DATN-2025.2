@@ -1,6 +1,5 @@
 import { useEffect, useState, useContext } from 'react';
 import { NotificationContext } from '../context/NotificationContext';
-// --- ĐÃ THÊM 2 API MỚI VÀO DÒNG NÀY ---
 import { getProfileApi, updateNameApi, getPendingUsersApi, handleApprovalApi, changePasswordApi } from '../services/auth.service';
 import { AuthContext } from '../context/AuthContext';
 

@@ -34,7 +34,7 @@ const Login = () => {
 
         try {
             const data = await loginApi(username, password);
-            loginUser(data.user, data.token);
+            loginUser(data.user, data.accessToken);
 
             if (data.user.role === 'SUPER_ADMIN') {
                 window.location.href = '/admin/dashboard';

@@ -1,78 +1,52 @@
 // src/services/device.service.js
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL;
-
-// Hàm tiện ích để lấy token
-const getAuthHeader = () => {
-    const token = localStorage.getItem('token');
-    return { Authorization: `Bearer ${token}` };
-};
+import api from './api'; // 1. Thay thế import axios bằng api instance dùng chung
 
 // API Thêm thiết bị
 export const addDeviceApi = async (deviceData) => {
     try {
-        const response = await axios.post(`${API_URL}/devices/add`, deviceData, {
-            headers: getAuthHeader()
-        });
+        const response = await api.post('/devices/add', deviceData);
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || "Lỗi khi thêm thiết bị");
     }
 };
 
-// API Lấy danh sách thiết bị (Bạn sẽ cần API này ở Backend để render sơ đồ)
+// API Lấy danh sách thiết bị
 export const getDevicesApi = async () => {
     try {
-        // Giả định bạn có viết route GET /api/devices/list ở backend
-        const response = await axios.get(`${API_URL}/devices/list`, {
-            headers: getAuthHeader()
-        });
+        const response = await api.get('/devices/list');
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || "Lỗi khi tải danh sách thiết bị");
     }
 };
 
-// API Lấy lịch sử thiết bị
+// API Lấy lịch sử thiết bị (Hỗ trợ truyền params để vẽ biểu đồ)
 export const getDeviceHistoryApi = async (params) => {
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/devices/history`, {
-        params,
-        headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get('/devices/history', { params });
     return response.data;
 };
 
 // API Xóa thiết bị
 export const deleteDeviceApi = async (id) => {
     try {
-        const token = localStorage.getItem('token');
-        const response = await axios.delete(`${API_URL}/devices/${id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.delete(`/devices/${id}`);
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || "Lỗi khi xóa thiết bị");
     }
 };
 
-// API Điều khiển thiết bị
+// API Điều khiển thiết bị (MQTT Publish)
 export const controlDeviceApi = async (controlData) => {
-    const token = localStorage.getItem('token');
-    const response = await axios.post(`${API_URL}/devices/control`, controlData, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.post('/devices/control', controlData);
     return response.data;
 };
 
-// API cập nhật thiết bị
+// API Cập nhật thiết bị
 export const updateDeviceApi = async (id, updateData) => {
     try {
-        const token = localStorage.getItem('token');
-        const response = await axios.put(`${API_URL}/devices/${id}`, updateData, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.put(`/devices/${id}`, updateData);
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || "Lỗi khi cập nhật thiết bị");

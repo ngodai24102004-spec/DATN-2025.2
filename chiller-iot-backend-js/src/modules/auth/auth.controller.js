@@ -4,6 +4,22 @@ import { sendApprovalEmail } from '../../config/mail.service.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
+const generateAccessToken = (user, buildingId) => {
+    return jwt.sign(
+        { id: user.id, role: user.role, buildingId },
+        process.env.JWT_SECRET || 'SECRET_KEY',
+        { expiresIn: '15m' } // Access Token sống 15 phút
+    );
+};
+
+const generateRefreshToken = (user) => {
+    return jwt.sign(
+        { id: user.id },
+        process.env.JWT_REFRESH_SECRET || 'REFRESH_SECRET_KEY',
+        { expiresIn: '7d' } // Refresh Token sống 7 ngày
+    );
+};
+
 export const AuthController = {
 
     // 1. API Gửi yêu cầu đăng ký (Dành cho trang Login)
@@ -224,35 +240,89 @@ export const AuthController = {
             });
 
             if (!user) return res.status(404).json({ message: "Sai tài khoản hoặc mật khẩu" });
-
-            if (user.status === 'PENDING') return res.status(403).json({ message: "Tài khoản của bạn đang chờ Super Admin phê duyệt!" });
-            if (user.status === 'REJECTED') return res.status(403).json({ message: "Tài khoản của bạn đã bị từ chối phê duyệt!" });
-            if (user.status === 'LOCKED') return res.status(403).json({ message: "Tài khoản của bạn đã bị khóa! Vui lòng liên hệ Super Admin." });
+            if (user.status === 'PENDING') return res.status(403).json({ message: "Tài khoản đang chờ duyệt!" });
+            if (user.status === 'LOCKED') return res.status(403).json({ message: "Tài khoản đã bị khóa!" });
 
             const isMatch = await bcrypt.compare(password, user.password);
             if (!isMatch) return res.status(400).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
-            // Lấy thông tin tòa nhà nếu là BUILDING_ADMIN
             let buildingInfo = null;
             if (user.role === 'BUILDING_ADMIN' && user.managedBuildings.length > 0) {
                 const b = user.managedBuildings[0].building;
                 buildingInfo = { id: b.id, code: b.code, name: b.name, address: b.address };
             }
 
-            const token = jwt.sign(
-                { id: user.id, role: user.role, buildingId: buildingInfo?.id || null },
-                process.env.JWT_SECRET || 'SECRET_KEY',
-                { expiresIn: '1d' }
-            );
+            const accessToken = generateAccessToken(user, buildingInfo?.id || null);
+            const refreshToken = generateRefreshToken(user);
 
+            // GỬI REFRESH TOKEN QUA HTTPONLY COOKIE
+            res.cookie('refreshToken', refreshToken, {
+                httpOnly: true,
+                secure: false, // Để false khi chạy thử nghiệm localhost (không có HTTPS)
+                sameSite: 'lax', // Cấu hình cho phép truyền cookie chéo cổng (localhost:3000 -> localhost:5173)
+                maxAge: 7 * 24 * 60 * 60 * 1000 // Hạn dùng 7 ngày (tính bằng mili-giây)
+            });
+
+            // Chỉ trả về Access Token và thông tin User trong JSON phản hồi
             res.json({
-                token,
+                accessToken,
                 user: { fullName: user.fullName, role: user.role, building: buildingInfo }
             });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
     },
+
+    refreshToken: async (req, res) => {
+        try {
+            // Đọc Refresh Token trực tiếp từ Cookie tự động gửi lên
+            const refreshToken = req.cookies.refreshToken;
+            if (!refreshToken) return res.status(401).json({ message: "Không tìm thấy Refresh Token trong Cookie" });
+
+            // Xác thực và giải mã chữ ký JWT mà không cần truy vấn Database
+            jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || 'REFRESH_SECRET_KEY', async (err, decoded) => {
+                if (err) return res.status(403).json({ message: "Refresh Token đã hết hạn hoặc không hợp lệ" });
+
+                // Truy vấn nhanh DB để lấy thông tin phân quyền mới nhất của User
+                const user = await prisma.user.findUnique({
+                    where: { id: decoded.id },
+                    include: { managedBuildings: { include: { building: true } } }
+                });
+
+                if (!user || user.status === 'LOCKED') {
+                    return res.status(403).json({ message: "Tài khoản không hợp lệ hoặc đã bị khóa" });
+                }
+
+                let buildingId = null;
+                if (user.role === 'BUILDING_ADMIN' && user.managedBuildings.length > 0) {
+                    buildingId = user.managedBuildings[0].building.id;
+                }
+
+                // Cấp Access Token mới
+                const newAccessToken = generateAccessToken(user, buildingId);
+
+                res.json({ accessToken: newAccessToken });
+            });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    logout: async (req, res) => {
+        try {
+            // Trình duyệt tự xóa cookie khi nhận lệnh clearCookie
+            res.clearCookie('refreshToken', {
+                httpOnly: true,
+                secure: false,
+                sameSite: 'lax'
+            });
+            res.json({ message: "Đăng xuất thành công" });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+
 
     // API Khóa / Mở khóa tài khoản (Dành cho Super Admin)
     toggleLockStatus: async (req, res) => {

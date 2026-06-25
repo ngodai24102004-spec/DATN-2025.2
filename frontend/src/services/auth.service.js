@@ -1,36 +1,36 @@
-import axios from 'axios';
+// src/services/auth.service.js
+import api from './api'; // 1. Thay thế import axios bằng api instance dùng chung
 
-const API_URL = import.meta.env.VITE_API_URL;
-// API Gửi yêu cầu đăng ký tài khoản mới (Không cần truyền token)
+// API Gửi yêu cầu đăng ký tài khoản mới (Không cần truyền token thủ công nữa)
 export const requestRegisterApi = async (data) => {
     try {
-        const response = await axios.post(`${API_URL}/auth/request-register`, data);
+        const response = await api.post('/auth/request-register', data);
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || "Lỗi không xác định từ máy chủ");
     }
 };
 
+// Lấy danh sách tài khoản đang chờ duyệt
 export const getPendingUsersApi = async () => {
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/auth/pending-users`, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await api.get('/auth/pending-users');
     return response.data;
 };
 
 // Xử lý Duyệt / Từ chối
 export const handleApprovalApi = async (data) => {
-    const token = localStorage.getItem('token');
-    const response = await axios.post(`${API_URL}/auth/handle-approval`, data, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await api.post('/auth/handle-approval', data);
     return response.data;
 };
 
+// Đăng nhập hệ thống (Sẽ nhận về accessToken từ BE)
 export const loginApi = async (username, password) => {
     try {
-        const response = await axios.post(`${API_URL}/auth/login`, {
+        const response = await api.post('/auth/login', {
             username,
             password
         });
-        return response.data; // Trả về { token, user }
+        return response.data; // Trả về { accessToken, user }
     } catch (error) {
         if (error.response && error.response.data) {
             throw new Error(error.response.data.message);
@@ -42,80 +42,59 @@ export const loginApi = async (username, password) => {
 // Khóa / Mở khóa tài khoản
 export const toggleLockUserApi = async (id) => {
     try {
-        // GIẢI PHÁP TỐI ƯU: Tìm Token ở cả sessionStorage và localStorage
-        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-
-        const response = await axios.put(`${API_URL}/auth/users/${id}/lock`, {}, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.put(`/auth/users/${id}/lock`, {});
         return response.data;
     } catch (error) {
-        // Bắt lỗi và ném ra để giao diện nhận được đúng câu chữ
         throw error;
     }
 };
 
+// Khởi tạo cơ sở và quản trị viên trực tiếp
 export const registerApi = async (registerData) => {
-    const response = await axios.post(`${API_URL}/auth/register`, registerData);
+    const response = await api.post('/auth/register', registerData);
     return response.data;
 };
 
+// Lấy thông tin cá nhân của phiên làm việc hiện tại
 export const getProfileApi = async () => {
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/auth/profile`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get('/auth/profile');
     return response.data;
 };
 
+// Cập nhật tên hiển thị
 export const updateNameApi = async (fullName) => {
-    const token = localStorage.getItem('token');
-    const response = await axios.put(`${API_URL}/auth/profile/name`,
-        { fullName },
-        { headers: { Authorization: `Bearer ${token}` } }
-    );
+    const response = await api.put('/auth/profile/name', { fullName });
     return response.data;
 };
 
+// Thay đổi mật khẩu cá nhân
 export const changePasswordApi = async (data) => {
-    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-    const response = await axios.put(`${API_URL}/auth/change-password`, data, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.put('/auth/change-password', data);
     return response.data;
 };
 
-
+// Lấy danh sách tất cả các Building Admin
 export const getBuildingAdminsApi = async () => {
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/auth/building-admins`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get('/auth/building-admins');
     return response.data;
 };
 
+// Xóa tài khoản vĩnh viễn
 export const deleteUserApi = async (id) => {
-    const token = localStorage.getItem('token');
-    const response = await axios.delete(`${API_URL}/auth/users/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.delete(`/auth/users/${id}`);
     return response.data;
 };
 
+// Cập nhật thông tin tài khoản bằng Admin
 export const updateUserApi = async (id, data) => {
-    const token = localStorage.getItem('token');
-    const response = await axios.put(`${API_URL}/auth/users/${id}`, data, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.put(`/auth/users/${id}`, data);
     return response.data;
 };
 
+// Thêm một quản lý mới vào tòa nhà đã tồn tại
 export const addManagerToBuildingApi = async (data) => {
     try {
-        const token = localStorage.getItem('token');
-        const response = await axios.post(`${API_URL}/auth/add-manager`, data, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.post('/auth/add-manager', data);
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || "Lỗi không xác định từ máy chủ");
