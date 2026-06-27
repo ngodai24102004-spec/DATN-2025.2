@@ -406,7 +406,7 @@ export default function Building3D({ devices = [] }) {
             // Nếu location để trống hoặc không có số tầng, dùng logic dự phòng
             if (assignedFloor === null) {
                 if (['CHILLER', 'COLDPUMP', 'COOLINGPUMP', 'VALVE', 'PIPE'].includes(dev.type)) assignedFloor = 0;
-                else if (dev.type === 'COOLINGTOWER') assignedFloor = 'ROOF';
+                else if (dev.type === 'COOLINGTOWER') assignedFloor = '0';
                 else assignedFloor = 1; // Mặc định vứt lên tầng 1
             }
 

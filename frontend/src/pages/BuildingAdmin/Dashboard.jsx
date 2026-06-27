@@ -764,7 +764,7 @@ export default function Dashboard() {
                             </div>
 
                             <div className="cyber-form-group"><label className="cyber-form-label">Mã định danh (Code MQTT)</label><input className="cyber-input" type="text" required value={formData.code} onChange={e => setFormData({ ...formData, code: e.target.value })} placeholder="Ví dụ: LIGHT_01" /></div>
-                            <div className="cyber-form-group"><label className="cyber-form-label">Tên thiết bị</label><input className="cyber-input" type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Ví dụ: Đèn hành lang T1" /></div>
+                            <div className="cyber-form-group"><label className="cyber-form-label">Tên thiết bị</label><input className="cyber-input" type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Ví dụ: Đèn hành lang T1" /></div>
 
                             <div className="cyber-form-group">
                                 <label className="cyber-form-label">Loại thiết bị</label>

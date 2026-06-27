@@ -1,3 +1,4 @@
+// src/components/Header.jsx
 import { useEffect, useState, useContext } from 'react';
 import { NotificationContext } from '../context/NotificationContext';
 import { getProfileApi, updateNameApi, getPendingUsersApi, handleApprovalApi, changePasswordApi } from '../services/auth.service';
@@ -8,13 +9,13 @@ import {
   X, Calendar, Shield, Trash2, AlertTriangle,
   Wifi, WifiOff, Clock,
   Sun, Cloud, CloudRain, CloudSun, CloudLightning,
-  UserPlus, Check, Lock
+  UserPlus, Check, Lock, Menu // Thêm icon Menu
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
 // =============================================
-// INJECT HEADER STYLES
+// INJECT HEADER STYLES (ĐÃ TỐI ƯU SỬA LỆCH LỀ)
 // =============================================
 const headerStyles = `
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -26,13 +27,18 @@ const headerStyles = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 28px;
+  padding: 0 16px;
   position: sticky;
   top: 0;
   z-index: 40;
-  margin-left: 288px;
   font-family: 'IBM Plex Sans', sans-serif;
   box-shadow: 0 1px 0 rgba(0,170,255,0.08), 0 4px 20px rgba(0,0,0,0.4);
+}
+
+@media (min-width: 1024px) {
+  .ch-header {
+    padding: 0 28px;
+  }
 }
 
 .ch-location {
@@ -43,6 +49,7 @@ const headerStyles = `
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
+  min-width: 0;
 }
 .ch-location svg { color: #00aaff; }
 
@@ -666,7 +673,7 @@ if (typeof document !== 'undefined' && !document.getElementById('cyber-header-st
   document.head.appendChild(el);
 }
 
-const Header = () => {
+const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀO ĐÂY
   const { user } = useContext(AuthContext);
   const { notifications, clearAll, socket } = useContext(NotificationContext);
 
@@ -834,11 +841,20 @@ const Header = () => {
 
   return (
     <>
-      <header className="ch-header ml-72">
+      <header className="ch-header"> {/* XÓA class ml-72 cũ ở đây vì CSS đã tự động thụt lề bằng Media Query */}
         {/* LEFT: Location */}
         <div className="ch-location">
+          {/* NÚT HAMBURGER MENU: Chỉ hiển thị trên di động (lg:hidden) */}
+          <button
+            onClick={onToggleSidebar}
+            className="lg:hidden p-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-300 hover:text-blue-400 mr-2 flex items-center justify-center shrink-0"
+            title="Mở trình đơn"
+          >
+            <Menu size={14} />
+          </button>
+
           <MapPin size={15} className="shrink-0" />
-          <span>
+          <span className="truncate max-w-[180px] sm:max-w-none">
             {user?.role === 'SUPER_ADMIN'
               ? 'TRUNG TÂM QUẢN TRỊ TỔNG (SUPER ADMIN)'
               : user?.building
@@ -848,7 +864,7 @@ const Header = () => {
           </span>
         </div>
 
-        {/* RIGHT: Widgets + User */}
+        {/* RIGHT: Widgets + User (Giữ nguyên vẹn) */}
         <div className="ch-widgets">
 
           {/* Clock */}
@@ -1059,7 +1075,7 @@ const Header = () => {
         </div>
       </header>
 
-      {/* ===== MODAL CHI TIẾT TÀI KHOẢN ===== */}
+      {/* ===== MODAL CHI TIẾT TÀI KHOẢN (Giữ nguyên vẹn) ===== */}
       {isProfileModalOpen && (
         <div className="ch-modal-overlay">
           <div className="ch-modal-backdrop" onClick={() => setIsProfileModalOpen(false)} />
@@ -1116,7 +1132,7 @@ const Header = () => {
         </div>
       )}
 
-      {/* ===== MODAL CÀI ĐẶT CÁ NHÂN & BẢO MẬT ===== */}
+      {/* ===== MODAL CÀI ĐẶT CÁ NHÂN & BẢO MẬT (Giữ nguyên vẹn) ===== */}
       {isSettingsModalOpen && (
         <div className="ch-modal-overlay">
           <div className="ch-modal-backdrop" onClick={() => setIsSettingsModalOpen(false)} />

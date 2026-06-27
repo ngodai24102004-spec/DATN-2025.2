@@ -1,10 +1,10 @@
+// src/components/Sidebar.jsx
 import { useContext } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import {
     LayoutDashboard,
     History,
-    Settings,
     LogOut,
     Building2,
     ShieldCheck,
@@ -13,7 +13,7 @@ import {
     Users,
 } from 'lucide-react';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onClose }) => {
     const { user, logoutUser } = useContext(AuthContext);
     const navigate = useNavigate();
 
@@ -23,7 +23,7 @@ const Sidebar = () => {
     };
 
     // ==========================================
-    // LOGIC PHÂN QUYỀN HIỂN THỊ MENU SIDEBAR (GIỮ NGUYÊN)
+    // LOGIC PHÂN QUYỀN HIỂN THỊ MENU SIDEBAR
     // ==========================================
     let menuItems = [];
 
@@ -45,8 +45,11 @@ const Sidebar = () => {
     }
 
     return (
-        // Đổi màu nền tối sâu hơn (chuẩn Dark Mode SCADA)
-        <aside className="w-72 bg-[#040914] border-r border-slate-800/60 text-white h-screen fixed left-0 top-0 flex flex-col shadow-2xl z-50">
+        // Đổi màu nền tối sâu hơn (chuẩn Dark Mode SCADA) kết hợp với các class điều hướng ẩn/hiện mượt mà của Tailwind
+        <aside
+            className={`w-72 bg-[#040914] border-r border-slate-800/60 text-white h-screen fixed left-0 top-0 flex flex-col shadow-2xl z-50 transition-transform duration-300
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+        >
 
             {/* --- LOGO SECTION --- */}
             <div className="p-6 flex items-center justify-between border-b border-slate-800/50 mb-4 mt-2">
@@ -60,6 +63,15 @@ const Sidebar = () => {
                         <p className="text-[8px] text-slate-400 uppercase tracking-[0.15em] font-bold mt-0.5">Building Management</p>
                     </div>
                 </div>
+
+                {/* Nút đóng nhanh Sidebar ngăn kéo (Chỉ hiển thị trên điện thoại/máy tính bảng) */}
+                <button
+                    onClick={onClose}
+                    className="lg:hidden p-1.5 bg-slate-800/60 hover:bg-slate-700/50 border border-slate-700/50 text-slate-400 hover:text-red-400 rounded-lg transition-colors"
+                    title="Đóng trình đơn"
+                >
+                    <ChevronsLeft size={16} />
+                </button>
             </div>
 
             {/* --- NAVIGATION LINKS --- */}
@@ -69,6 +81,7 @@ const Sidebar = () => {
                         key={item.path}
                         to={item.path}
                         end
+                        onClick={onClose} // Tự động đóng ngăn kéo khi click chọn chuyển trang trên di động
                         className={({ isActive }) =>
                             `flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group border ${isActive
                                 ? 'bg-blue-600/10 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.1)] text-white'
