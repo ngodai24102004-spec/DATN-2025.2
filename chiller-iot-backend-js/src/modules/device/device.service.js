@@ -16,7 +16,7 @@ export const DeviceService = {
                 where: {
                     device_code: deviceCode,
                     status: 'SENT',
-                    created_at: { gte: twoSecondsAgo } // Loại bỏ các lệnh bị kẹt từ lâu
+                    created_at: { gte: twoSecondsAgo }
                 },
                 orderBy: { created_at: 'desc' } // Sắp xếp mới nhất lên đầu
             });
@@ -91,7 +91,7 @@ export const DeviceService = {
     handleChillerData: async (chillerList) => {
         for (const item of chillerList) {
             try {
-                // SỬA: Lấy thêm thông tin người quản lý tòa nhà
+                // Lấy thêm thông tin người quản lý tòa nhà
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
                     include: {
@@ -102,7 +102,6 @@ export const DeviceService = {
                 });
 
                 if (!deviceInDb) {
-                    console.log(`⚠️ Thiết bị ${item.code} chưa được khai báo trong MySQL. Bỏ qua.`);
                     continue;
                 }
 

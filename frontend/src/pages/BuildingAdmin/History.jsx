@@ -409,7 +409,7 @@ export default function HistoryPage() {
                                             name={activeConfig.name}
                                             stroke={activeConfig.color}
                                             strokeWidth={3}
-                                            dot={{ r: 3, fill: activeConfig.color, strokeWidth: 0 }}
+                                            dot={historyData.length > 150 ? false : { r: 3, fill: activeConfig.color, strokeWidth: 0 }}
                                             activeDot={{ r: 6, strokeWidth: 0, fill: '#ffffff', stroke: activeConfig.color }}
                                             animationDuration={800}
                                         />

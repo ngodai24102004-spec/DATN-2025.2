@@ -3,6 +3,7 @@ import { useEffect, useState, useContext } from 'react';
 import { NotificationContext } from '../context/NotificationContext';
 import { getProfileApi, updateNameApi, getPendingUsersApi, handleApprovalApi, changePasswordApi } from '../services/auth.service';
 import { AuthContext } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 import {
   Bell, MoreVertical, User, MapPin, Settings as SettingsIcon,
@@ -674,8 +675,10 @@ if (typeof document !== 'undefined' && !document.getElementById('cyber-header-st
 }
 
 const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀO ĐÂY
-  const { user } = useContext(AuthContext);
+  const { user, logoutUser } = useContext(AuthContext);
   const { notifications, clearAll, socket } = useContext(NotificationContext);
+
+  const navigate = useNavigate();
 
   const [isOnline, setIsOnline] = useState(false);
   const [weather, setWeather] = useState({ temp: '--', label: 'Đang tải...', icon: <CloudSun size={14} style={{ color: '#ffb800' }} /> });
@@ -687,6 +690,8 @@ const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀ
   // --- BỔ SUNG: STATE CHO TABS CHUÔNG ---
   const [notiTab, setNotiTab] = useState('alarms');
   const [pendingUsers, setPendingUsers] = useState([]);
+
+  const [processingIds, setProcessingIds] = useState([]);
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileData, setProfileData] = useState(null);
@@ -720,6 +725,12 @@ const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀ
     }
   };
 
+  const handleLogout = () => {
+    setIsProfileModalOpen(false); // Đóng modal profile trước
+    logoutUser();                 // Gọi hàm logout tập trung (gọi API /logout xóa cookie và xóa localStorage)
+    navigate('/login');           // Điều hướng mượt mà về trang Login
+  };
+
   // --- BỔ SUNG: LOGIC LẤY DANH SÁCH DUYỆT TÀI KHOẢN KHI MỚI VÀO ---
   useEffect(() => {
     if (user?.role === 'SUPER_ADMIN') {
@@ -743,8 +754,16 @@ const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀ
     return () => socket.off("new-registration", handleNewReg);
   }, [socket, user?.role]);
 
-  // --- BỔ SUNG: HÀM XỬ LÝ BẤM NÚT ĐỒNG Ý / TỪ CHỐI ---
+
   const handleApprovalSubmit = async (userId, action) => {
+    const key = `${userId}-${action}`;
+
+    // Nếu ĐANG xử lý bất kỳ hành động nào (duyệt HOẶC từ chối) của user này thì chặn click tiếp
+    if (processingIds.some(p => p.startsWith(`${userId}-`))) return;
+
+    // Đưa mã khóa (ví dụ: "9-APPROVE") vào danh sách đang xử lý
+    setProcessingIds(prev => [...prev, key]);
+
     try {
       await handleApprovalApi({ userId, action });
       setPendingUsers(prev => prev.filter(u => u.id !== userId));
@@ -754,6 +773,9 @@ const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀ
       }
     } catch (error) {
       toast.error("Xử lý thất bại. Vui lòng thử lại!");
+    } finally {
+      // Xóa mã khóa khỏi danh sách sau khi hoàn tất
+      setProcessingIds(prev => prev.filter(k => k !== key));
     }
   };
 
@@ -1023,11 +1045,32 @@ const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀ
                                 </div>
 
                                 <div className="ch-approval-actions">
-                                  <button onClick={() => handleApprovalSubmit(u.id, 'APPROVE')} className="ch-btn-approve">
-                                    <Check size={12} /> Phê duyệt
+                                  {/* NÚT PHÊ DUYỆT */}
+                                  <button
+                                    onClick={() => handleApprovalSubmit(u.id, 'APPROVE')}
+                                    className="ch-btn-approve"
+                                    // Khóa nút nếu user này đang xử lý bất kỳ hành động nào
+                                    disabled={processingIds.some(p => p.startsWith(`${u.id}-`))}
+                                    style={{
+                                      opacity: processingIds.some(p => p.startsWith(`${u.id}-`)) ? 0.6 : 1,
+                                      cursor: processingIds.some(p => p.startsWith(`${u.id}-`)) ? 'not-allowed' : 'pointer'
+                                    }}
+                                  >
+                                    <Check size={12} /> {processingIds.includes(`${u.id}-APPROVE`) ? 'Đang gửi...' : 'Phê duyệt'}
                                   </button>
-                                  <button onClick={() => handleApprovalSubmit(u.id, 'REJECT')} className="ch-btn-reject">
-                                    <X size={12} /> Từ chối
+
+                                  {/* NÚT TỪ CHỐI */}
+                                  <button
+                                    onClick={() => handleApprovalSubmit(u.id, 'REJECT')}
+                                    className="ch-btn-reject"
+                                    // Khóa nút nếu user này đang xử lý bất kỳ hành động nào
+                                    disabled={processingIds.some(p => p.startsWith(`${u.id}-`))}
+                                    style={{
+                                      opacity: processingIds.some(p => p.startsWith(`${u.id}-`)) ? 0.6 : 1,
+                                      cursor: processingIds.some(p => p.startsWith(`${u.id}-`)) ? 'not-allowed' : 'pointer'
+                                    }}
+                                  >
+                                    <X size={12} /> {processingIds.includes(`${u.id}-REJECT`) ? 'Đang gửi...' : 'Từ chối'}
                                   </button>
                                 </div>
                               </div>
@@ -1126,7 +1169,7 @@ const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀ
 
             <div className="ch-modal-footer">
               <button className="ch-btn-secondary" onClick={() => setIsProfileModalOpen(false)}>Đóng</button>
-              <button className="ch-btn-danger" onClick={() => { localStorage.clear(); window.location.href = '/login'; }}>Đăng xuất</button>
+              <button className="ch-btn-danger" onClick={handleLogout}>Đăng xuất</button>
             </div>
           </div>
         </div>

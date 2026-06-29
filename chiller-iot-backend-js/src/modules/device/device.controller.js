@@ -4,7 +4,6 @@ export const DeviceController = {
     // 1. API: Thêm thiết bị mới vào tòa nhà
     addDevice: async (req, res) => {
         try {
-            // SỬA ĐỔI: Lấy thêm subsystemId từ req.body
             const { buildingId, subsystemId, code, type, name, location } = req.body;
             const user = req.user;
 

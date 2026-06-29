@@ -387,7 +387,7 @@ export default function Building3D({ devices = [] }) {
 
     const mappedDevices = useMemo(() => {
         let count = { TOWER: 0, CPUMP: 0, CHILLER: 0, CHWPUMP: 0, VALVE: 0, OTHER: 0 };
-        const floorItemCount = {}; // Biến đếm để rải đều thiết bị trên cùng 1 tầng tránh đè nhau
+        const floorItemCount = {}; // Biến đếm để rải đều thiết bị trên các tầng nổi
 
         return devices.map((dev) => {
             let assignedFloor = null;
@@ -406,18 +406,43 @@ export default function Building3D({ devices = [] }) {
             // Nếu location để trống hoặc không có số tầng, dùng logic dự phòng
             if (assignedFloor === null) {
                 if (['CHILLER', 'COLDPUMP', 'COOLINGPUMP', 'VALVE', 'PIPE'].includes(dev.type)) assignedFloor = 0;
-                else if (dev.type === 'COOLINGTOWER') assignedFloor = '0';
+                else if (dev.type === 'COOLINGTOWER') assignedFloor = 0; // Đổi từ chuỗi '0' thành số 0 chuẩn chỉnh
                 else assignedFloor = 1; // Mặc định vứt lên tầng 1
             }
 
-            // 2. TÍNH TỌA ĐỘ NGANG (X, Z) TRÊN MẶT SÀN
+            // 2. TÍNH TOÀN BỘ TỌA ĐỘ NGANG (X, Z) TRÊN MẶT SÀN
             if (assignedFloor === 0) {
-                // Riêng tầng hầm: Xếp máy móc thành hàng ngang cho chuyên nghiệp
-                if (dev.type === 'COOLINGTOWER') { posX = -8; posZ = (count.TOWER++ * 2) - 1; }
-                else if (dev.type === 'COOLINGPUMP') { posX = -4; posZ = (count.CPUMP++ * 2) - 1; }
-                else if (dev.type === 'CHILLER') { posX = 0; posZ = (count.CHILLER++ * 2.5) - 1; }
-                else if (dev.type === 'COLDPUMP') { posX = 4; posZ = (count.CHWPUMP++ * 2) - 1; }
-                else { posX = 8; posZ = (count.VALVE++ * 2) - 1; }
+                // ====================================================================
+                // GIẢI THUẬT RẢI LƯỚI SONG SONG: Chống tràn thiết bị ra khỏi tầng hầm
+                // ====================================================================
+                const getBasementGridCoords = (baseX, index) => {
+                    const maxRows = 4; // Tối đa 4 thiết bị trên một hàng dọc Z
+                    const subCol = Math.floor(index / maxRows); // Tính cột phụ dịch chuyển theo trục X
+                    const row = index % maxRows; // Tính hàng theo trục Z
+
+                    return {
+                        x: baseX + (subCol * 1.2), // Nếu vượt quá 4 thiết bị, cột phụ tự dịch nhẹ sang phải 1.2 đơn vị
+                        z: (row * 2.6) - 3.9       // Tọa độ chạy từ -3.9 đến 3.9 (luôn nằm an toàn trong lòng hầm)
+                    };
+                };
+
+                let coords;
+                if (dev.type === 'COOLINGTOWER') {
+                    coords = getBasementGridCoords(-8, count.TOWER++);
+                } else if (dev.type === 'COOLINGPUMP') {
+                    coords = getBasementGridCoords(-4, count.CPUMP++);
+                } else if (dev.type === 'CHILLER') {
+                    coords = getBasementGridCoords(0, count.CHILLER++);
+                } else if (dev.type === 'COLDPUMP') {
+                    coords = getBasementGridCoords(4, count.CHWPUMP++);
+                } else {
+                    coords = getBasementGridCoords(8, count.VALVE++);
+                }
+
+                posX = coords.x;
+                posZ = coords.z;
+                // ====================================================================
+
             } else {
                 // Các tầng nổi (Đèn, Quạt, AHU...): Rải đều thành lưới tránh đè lên nhau
                 const floorKey = String(assignedFloor);

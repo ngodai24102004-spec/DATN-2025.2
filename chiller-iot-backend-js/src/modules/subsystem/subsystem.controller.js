@@ -23,6 +23,17 @@ export const SubsystemController = {
     addSubsystem: async (req, res) => {
         try {
             const { name, code, buildingId } = req.body;
+
+            if (!buildingId) {
+                return res.status(400).json({ message: "Vui lòng cung cấp mã tòa nhà (buildingId)!" });
+            }
+
+            if (req.user.role === 'BUILDING_ADMIN') {
+                if (parseInt(buildingId) !== req.user.buildingId) {
+                    return res.status(403).json({ message: "Bạn không có quyền thêm phân hệ vào tòa nhà này!" });
+                }
+            }
+
             const newSubsystem = await prisma.subsystem.create({
                 data: { name, code, buildingId: parseInt(buildingId) }
             });
@@ -37,6 +48,20 @@ export const SubsystemController = {
         try {
             const subsystemId = parseInt(req.params.id);
             const user = req.user;
+
+            // 1. Tìm phân hệ trong database trước khi xóa
+            const subsystem = await prisma.subsystem.findUnique({
+                where: { id: subsystemId }
+            });
+
+            if (!subsystem) {
+                return res.status(404).json({ message: "Phân hệ không tồn tại!" });
+            }
+
+            // 2. KIỂM TRA PHÂN QUYỀN (Nếu không phải SUPER_ADMIN và tòa nhà không khớp)
+            if (user.role === 'BUILDING_ADMIN' && subsystem.buildingId !== user.buildingId) {
+                return res.status(403).json({ message: "Bạn không có quyền xóa phân hệ của tòa nhà này!" });
+            }
 
             // Dùng transaction để xóa thiết bị trước, xóa phân hệ sau (tránh lỗi khóa ngoại)
             await prisma.$transaction([

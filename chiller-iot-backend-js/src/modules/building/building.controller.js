@@ -80,27 +80,45 @@ export const BuildingController = {
             // 1. Kiểm tra tòa nhà tồn tại
             const building = await prisma.building.findUnique({
                 where: { id: buildingId },
-                include: { devices: true }
+                include: {
+                    devices: true,
+                    managers: true
+                }
             });
             if (!building) return res.status(404).json({ message: "Tòa nhà không tồn tại" });
 
+            const managerUserIds = building.managers.map(m => m.userId);
+
             // 2. Dùng Transaction để xóa sạch các dữ liệu liên quan THEO ĐÚNG THỨ TỰ
             await prisma.$transaction([
-                // Bước 1: Xóa liên kết người quản lý - tòa nhà
-                prisma.userBuilding.deleteMany({ where: { buildingId } }),
-
-                // Bước 2: Xóa nhật ký điều khiển của các thiết bị trong nhà này
                 prisma.controlLog.deleteMany({
-                    where: { device_code: { in: building.devices.map(d => d.code) } }
+                    where: {
+                        OR: [
+                            { device_code: { in: building.devices.map(d => d.code) } },
+                            { user_id: { in: managerUserIds } }
+                        ]
+                    }
                 }),
 
-                // Bước 3: Xóa toàn bộ thiết bị thuộc tòa nhà
+                // Bước 2: Xóa liên kết người quản lý - tòa nhà
+                prisma.userBuilding.deleteMany({ where: { buildingId } }),
+
+                // Bước 3: XÓA VĨNH VIỄN CÁC TÀI KHOẢN ADMIN THUỘC TÒA NHÀ NÀY
+                // (Chốt chặn role === 'BUILDING_ADMIN' để tuyệt đối không xóa nhầm Super Admin)
+                prisma.user.deleteMany({
+                    where: {
+                        id: { in: managerUserIds },
+                        role: 'BUILDING_ADMIN'
+                    }
+                }),
+
+                // Bước 4: Xóa toàn bộ thiết bị thuộc tòa nhà
                 prisma.device.deleteMany({ where: { buildingId } }),
 
-                // Bước 4 (BỔ SUNG CỰC KỲ QUAN TRỌNG): Xóa toàn bộ Phân hệ (Subsystem)
+                // Bước 5: Xóa toàn bộ Phân hệ (Subsystem)
                 prisma.subsystem.deleteMany({ where: { buildingId } }),
 
-                // Bước 5: Cuối cùng mới xóa Tòa nhà
+                // Bước 6: Cuối cùng mới xóa Tòa nhà
                 prisma.building.delete({ where: { id: buildingId } })
             ]);
 

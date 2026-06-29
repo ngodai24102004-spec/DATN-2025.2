@@ -81,6 +81,10 @@ export const AuthController = {
             const user = await prisma.user.findUnique({ where: { id: userId } });
             if (!user) return res.status(404).json({ message: "User không tồn tại" });
 
+            if (action === 'APPROVE' && user.status === 'APPROVED') {
+                return res.status(400).json({ message: "Tài khoản này đã được phê duyệt từ trước!" });
+            }
+
             if (action === 'APPROVE') {
                 // NẾU ĐỒNG Ý: Cập nhật status và cấp quyền vào tòa nhà
                 await prisma.$transaction(async (tx) => {
@@ -107,7 +111,7 @@ export const AuthController = {
                 await import('../../config/mail.service.js').then(m => m.sendApprovalEmail(user.email, false, user.username));
 
                 // 2. XÓA HARD-DELETE USER KHỎI MYSQL
-                await prisma.user.delete({
+                await prisma.user.deleteMany({
                     where: { id: userId }
                 });
 
