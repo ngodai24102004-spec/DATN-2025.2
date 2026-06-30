@@ -1,9 +1,26 @@
 import { queryApi } from '../../config/influx.js';
+import prisma from '../../config/prisma.js';
 
 export const AnalyticController = {
     getDeviceHistory: async (req, res) => {
         try {
             const { deviceCode, measurement, range } = req.query;
+
+            const user = req.user;
+            if (user.role === 'BUILDING_ADMIN') {
+                // 1. Truy vấn nhanh thiết bị trong MySQL bằng Prisma
+                const deviceInDb = await prisma.device.findUnique({
+                    where: { code: deviceCode }
+                });
+
+                // 2. Chặn ngay nếu thiết bị không tồn tại hoặc thiết bị thuộc tòa nhà khác
+                if (!deviceInDb || deviceInDb.buildingId !== user.buildingId) {
+                    return res.status(403).json({
+                        message: "Bạn không có quyền truy cập dữ liệu lịch sử của thiết bị thuộc tòa nhà khác!"
+                    });
+                }
+            }
+
 
             // ==========================================================
             // TỐI ƯU HÓA ĐỘNG KHOẢNG GOM NHÓM (EVERY) TRÁNH LAG BIỂU ĐỒ
