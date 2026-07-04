@@ -464,12 +464,6 @@ export default function Building3D({ devices = [] }) {
     }, [devices]);
 
     return (
-        /*
-         * FIX LỖI BỊ CHE QUAN TRỌNG:
-         * Bỏ overflow-hidden ở wrapper ngoài cùng – đây là nguyên nhân chính
-         * khiến Html portal bị cắt khi zoom 90%. Thay bằng overflow-visible.
-         * Canvas tự clip nội dung 3D, không cần overflow-hidden ở đây.
-         */
         <div className="w-full h-[calc(100vh-280px)] min-h-[500px] rounded-[1.8rem] bg-gradient-to-b from-[#0f172a] to-[#020617] border border-slate-800 relative font-sans shadow-2xl flex overflow-visible">
 
             {/* CỘT TRÁI: CANVAS 3D + PANEL TẦNG */}

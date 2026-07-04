@@ -39,6 +39,7 @@ export const AnalyticController = {
                 |> filter(fn: (r) => r["code"] == "${deviceCode}")
                 // Truyền biến windowInterval đã tính toán vào đây
                 |> aggregateWindow(every: ${windowInterval}, fn: last, createEmpty: true)
+                |> group() 
                 |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
             `;
 

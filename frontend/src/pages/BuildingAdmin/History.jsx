@@ -110,7 +110,7 @@ export default function HistoryPage() {
             const formattedData = data.map(item => {
                 const d = new Date(item._time);
                 const datePart = d.toLocaleDateString('vi-VN');
-                const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 return { ...item, displayTime: `${timePart}\n${datePart}` };
             });
 
@@ -220,6 +220,44 @@ export default function HistoryPage() {
             toast.error("Có lỗi xảy ra khi xuất file.");
         }
     };
+
+    // ==========================================================
+    // ── TÍNH TOÁN THỜI GIAN HOẠT ĐỘNG (UPTIME) REAL-TIME ──
+    // ==========================================================
+    const isPointActive = (point, type) => {
+        if (!point) return false;
+        if (type === 'PIPE') return point.flow_status === 1;
+        if (type === 'VALVE' || type === 'LIGHT' || type === 'LIGHT_DIMMER') return point.state === 1;
+        return point.power === 1 || point.state === 1;
+    };
+
+    // Hàm lấy khoảng cách phút giữa các điểm dữ liệu dựa theo range truy xuất
+    const getIntervalMinutes = (rangeVal) => {
+        if (rangeVal === '1h') return 1;    // 1h -> mỗi điểm cách nhau 1 phút [2]
+        if (rangeVal === '6h') return 5;    // 6h -> mỗi điểm cách nhau 5 phút [2]
+        if (rangeVal === '24h') return 15;  // 24h -> mỗi điểm cách nhau 15 phút [2]
+        if (rangeVal === '7d') return 120;  // 7d -> mỗi điểm cách nhau 120 phút (2 tiếng) [2]
+        return 15;
+    };
+
+    // Đếm số lượng điểm hoạt động thực tế
+    const activePointsCount = historyData.filter(point => isPointActive(point, selectedDevice?.type)).length;
+    const intervalMin = getIntervalMinutes(range);
+    const totalActiveMinutes = activePointsCount * intervalMin;
+
+    // Định dạng số phút thành chuỗi "X giờ Y phút" thân thiện
+    const formatDuration = (totalMinutes) => {
+        if (totalMinutes === 0) return "0 phút";
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        let res = "";
+        if (hours > 0) res += `${hours} giờ `;
+        if (minutes > 0 || hours === 0) res += `${minutes} phút`;
+        return res;
+    };
+
+    // Tính tỷ lệ phần trăm vận hành
+    const operatingRatio = historyData.length > 0 ? Math.round((activePointsCount / historyData.length) * 100) : 0;
 
     return (
         <div className="space-y-6 bg-[#030712] min-h-screen p-6 text-slate-200 font-sans">
@@ -415,6 +453,29 @@ export default function HistoryPage() {
                                         />
                                     </LineChart>
                                 </ResponsiveContainer>
+                            </div>
+                            <div className="mt-6 p-4 bg-[#0d1527]/80 border border-slate-800 rounded-2xl flex items-center justify-between animate-in fade-in duration-300">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${activePointsCount > 0
+                                        ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                                        : 'bg-slate-800/40 border border-slate-800 text-slate-500'
+                                        }`}>
+                                        <Activity size={20} className={activePointsCount > 0 ? "spin-fast" : ""} />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Thời gian hoạt động thiết bị</div>
+                                        <div className="text-md font-black text-white mt-1 font-mono">
+                                            {formatDuration(totalActiveMinutes)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="text-right pr-2">
+                                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Tỉ lệ vận hành trong kỳ</div>
+                                    <div className="text-md font-black text-emerald-400 mt-1 font-mono">
+                                        {operatingRatio}%
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ) : (

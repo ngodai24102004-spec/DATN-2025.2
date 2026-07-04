@@ -19,6 +19,7 @@ export default function SystemManagement() {
         username: '',
         password: '',
         fullName: '',
+        email: '',
         buildingName: '',
         buildingCode: '',
         address: ''
@@ -314,6 +315,10 @@ export default function SystemManagement() {
                                 {/* CỘT 2: THÔNG TIN TÀI KHOẢN ADMIN */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     <h3 style={{ fontSize: '11px', color: 'var(--cyber-green)', fontWeight: 800, borderLeft: '3px solid var(--cyber-green)', paddingLeft: '8px' }}>TÀI KHOẢN BUILDING ADMIN</h3>
+                                    <div className="cyber-form-group">
+                                        <label className="cyber-form-label">Email nhận thông báo <span style={{ color: 'var(--cyber-red)' }}>*</span></label>
+                                        <input className="cyber-input" type="email" required value={addFormData.email} onChange={e => setAddFormData({ ...addFormData, email: e.target.value })} placeholder="email@gmail.com" />
+                                    </div>
                                     <div className="cyber-form-group">
                                         <label className="cyber-form-label">Tên đăng nhập</label>
                                         <input className="cyber-input" type="text" required value={addFormData.username} onChange={e => setAddFormData({ ...addFormData, username: e.target.value })} placeholder="Username" />

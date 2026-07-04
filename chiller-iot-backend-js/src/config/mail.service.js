@@ -24,3 +24,27 @@ export const sendApprovalEmail = async (toEmail, isApproved, username) => {
         console.error("Lỗi gửi email:", error);
     }
 };
+
+export const sendCredentialsEmail = async (toEmail, username, plainPassword, fullName, buildingName) => {
+    const subject = "🔑 Tài khoản quản trị viên BMS của bạn đã được kích hoạt!";
+    const text = `Chào ${fullName},\n\nTài khoản Quản lý tòa nhà của bạn tại cơ sở [${buildingName}] đã được khởi tạo thành công trên hệ thống BMS.\n\nThông tin đăng nhập của bạn:\n- Tên đăng nhập: ${username}\n- Mật khẩu: ${plainPassword}\n\nVui lòng truy cập hệ thống tại http://localhost:5173 để đăng nhập và đổi mật khẩu cá nhân.\n\nTrân trọng,\nHệ thống BMS.`;
+
+    try {
+        await transporter.sendMail({ from: '"Hệ thống BMS" <no-reply@bms.com>', to: toEmail, subject, text });
+        console.log(`📧 Đã gửi thông tin tài khoản tới email ${toEmail}`);
+    } catch (error) {
+        console.error("Lỗi gửi email cấp tài khoản:", error);
+    }
+};
+
+export const sendOtpEmail = async (toEmail, otp) => {
+    const subject = "🔐 Mã OTP xác minh tài khoản BMS của bạn";
+    const text = `Chào bạn,\n\nMã OTP để xác minh yêu cầu đăng ký tài khoản BMS của bạn là: ${otp}\n\nMã này có hiệu lực trong vòng 60 giây. Vui lòng tuyệt đối không chia sẻ mã này với bất kỳ ai.\n\nTrân trọng,\nHệ thống BMS.`;
+
+    try {
+        await transporter.sendMail({ from: '"Hệ thống BMS" <no-reply@bms.com>', to: toEmail, subject, text });
+        console.log(`📧 Đã gửi mã OTP tới email ${toEmail}`);
+    } catch (error) {
+        console.error("Lỗi gửi email OTP:", error);
+    }
+};

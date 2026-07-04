@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.post('/register', AuthController.register);
 router.post('/request-register', AuthController.requestRegistration);
+router.post('/send-otp', AuthController.sendOtp);
 router.post('/handle-approval', verifyToken, AuthController.handleApproval);
 router.get('/pending-users', verifyToken, AuthController.getPendingUsers);
 router.post('/login', AuthController.login);

@@ -3,6 +3,27 @@ import { getIo } from '../../config/socket.js';
 import { sendApprovalEmail } from '../../config/mail.service.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import dns from 'dns';
+import { promisify } from 'util';
+
+const resolveMx = promisify(dns.resolveMx);
+const otpCache = new Map(); // Bộ nhớ tạm lưu trữ email -> { otp, expiresAt }
+
+const verifyEmailDomain = async (email) => {
+    const domain = email.split('@')[1];
+    if (!domain) return false;
+    try {
+        const addresses = await resolveMx(domain);
+        return addresses && addresses.length > 0;
+    } catch (err) {
+        return false; // Tên miền không tồn tại hoặc không cấu hình nhận mail
+    }
+};
+
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // Sinh 6 số ngẫu nhiên từ 100000 đến 999000
+};
+
 
 const generateAccessToken = (user, buildingId) => {
     return jwt.sign(
@@ -22,22 +43,61 @@ const generateRefreshToken = (user) => {
 
 export const AuthController = {
 
+    // API Gửi OTP về Email (Có kiểm tra DNS tồn tại thực tế)
+    sendOtp: async (req, res) => {
+        try {
+            const { email } = req.body;
+            if (!email) return res.status(400).json({ message: "Vui lòng nhập Email!" });
+
+            // 1. Chạy xác thực chéo DNS xem email có thật không trước khi gửi
+            const isEmailValid = await verifyEmailDomain(email);
+            if (!isEmailValid) {
+                return res.status(400).json({ message: "Địa chỉ Email không tồn tại thực tế hoặc tên miền không hợp lệ!" });
+            }
+
+            // 2. Kiểm tra xem email này đã đăng ký tài khoản nào chưa
+            const emailExist = await prisma.user.findUnique({ where: { email } });
+            if (emailExist) return res.status(400).json({ message: "Email này đã được đăng ký tài khoản khác!" });
+
+            // 3. Khởi tạo mã OTP
+            const otp = generateOTP();
+            const expiresAt = Date.now() + 60000; // Hết hạn sau đúng 60 giây (60000ms)
+
+            // Lưu vào bộ nhớ tạm
+            otpCache.set(email, { otp, expiresAt });
+
+            // 4. Gửi email chứa mã OTP
+            await import('../../config/mail.service.js').then(m => m.sendOtpEmail(email, otp));
+
+            res.status(200).json({ message: "Mã OTP đã được gửi về hòm thư của bạn!" });
+        } catch (error) {
+            console.error("Lỗi gửi OTP:", error);
+            res.status(500).json({ message: "Gửi mã OTP thất bại!" });
+        }
+    },
+
     // 1. API Gửi yêu cầu đăng ký (Dành cho trang Login)
     requestRegistration: async (req, res) => {
         try {
-            const { username, password, fullName, email, buildingCode } = req.body;
+            const { username, password, fullName, email, buildingCode, otp } = req.body;
+
+            // XÁC THỰC MÃ OTP
+            if (!otp) return res.status(400).json({ message: "Vui lòng nhập mã xác thực OTP!" });
+
+            const cached = otpCache.get(email);
+            if (!cached || cached.otp !== otp || Date.now() > cached.expiresAt) {
+                return res.status(400).json({ message: "Mã xác thực OTP không chính xác hoặc đã hết hạn (60 giây)!" });
+            }
+
+            // OTP hợp lệ -> Xóa khỏi RAM để chống dùng lại
+            otpCache.delete(email);
 
             const exist = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } });
             if (exist) return res.status(400).json({ message: "Username hoặc Email đã được sử dụng!" });
 
             // Dò tìm tòa nhà bằng mã code
-            const targetBuilding = await prisma.building.findUnique({
-                where: { code: buildingCode }
-            });
-
-            if (!targetBuilding) {
-                return res.status(400).json({ message: "Mã tòa nhà không tồn tại! Vui lòng kiểm tra lại." });
-            }
+            const targetBuilding = await prisma.building.findUnique({ where: { code: buildingCode } });
+            if (!targetBuilding) return res.status(400).json({ message: "Mã tòa nhà không tồn tại! Vui lòng kiểm tra lại." });
 
             const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -48,18 +108,10 @@ export const AuthController = {
                 }
             });
 
-            // SỬA: Đóng gói thêm Tên và Mã tòa nhà để gửi qua Socket
             const io = await import('../../config/socket.js').then(m => m.getIo());
             io.to("super_admin_room").emit("new-registration", {
-                id: newUser.id,
-                username,
-                fullName,
-                email,
-                // Gắn thêm object này cho Frontend dễ đọc
-                requestedBuilding: {
-                    name: targetBuilding.name,
-                    code: targetBuilding.code
-                }
+                id: newUser.id, username, fullName, email,
+                requestedBuilding: { name: targetBuilding.name, code: targetBuilding.code }
             });
 
             res.status(201).json({ message: "Gửi yêu cầu thành công! Vui lòng chờ phê duyệt." });
@@ -156,7 +208,8 @@ export const AuthController = {
         try {
             const {
                 username, password, fullName, role, // Thông tin chung
-                buildingName, buildingCode, address   // Thông tin riêng cho BUILDING_ADMIN
+                buildingName, buildingCode, address,  // Thông tin riêng cho tòa nhà
+                email // SỬA: Nhận thêm email gửi lên từ body
             } = req.body;
 
             // 1. Kiểm tra Role có hợp lệ không
@@ -168,18 +221,16 @@ export const AuthController = {
             const userExist = await prisma.user.findUnique({ where: { username } });
             if (userExist) return res.status(400).json({ message: "Username này đã được sử dụng" });
 
-            // 3. Mã hóa mật khẩu
-            const hashedPassword = await bcrypt.hash(password, 10);
-
             // ==========================================
-            // KỊCH BẢN 1: NẾU TẠO SUPER_ADMIN
+            // KỊCH BẢN 1: NẾU TẠO SUPER_ADMIN (Giữ nguyên)
             // ==========================================
             if (role === 'SUPER_ADMIN') {
+                const hashedPassword = await bcrypt.hash(password, 10);
                 const newUser = await prisma.user.create({
                     data: { username, password: hashedPassword, fullName, role: 'SUPER_ADMIN' }
                 });
                 return res.status(201).json({
-                    message: "Tạo tài khoản Quản trị viên Tổng (SUPER_ADMIN) thành công!",
+                    message: "Tạo tài khoản Quản trị viên Tổng thành công!",
                     data: { username: newUser.username, role: newUser.role, fullName: newUser.fullName }
                 });
             }
@@ -188,14 +239,25 @@ export const AuthController = {
             // KỊCH BẢN 2: NẾU TẠO BUILDING_ADMIN
             // ==========================================
             if (role === 'BUILDING_ADMIN') {
-                // Ép buộc phải nhập thông tin tòa nhà
-                if (!buildingCode || !buildingName) {
-                    return res.status(400).json({ message: "Cần cung cấp buildingName và buildingCode để tạo Admin Tòa nhà" });
+                if (!buildingCode || !buildingName || !email) {
+                    return res.status(400).json({ message: "Cần cung cấp đầy đủ thông tin tòa nhà và email liên hệ!" });
                 }
 
-                // Kiểm tra mã tòa nhà xem có bị trùng không
+                // Kiểm tra email độc nhất
+                const emailExist = await prisma.user.findUnique({ where: { email } });
+                if (emailExist) return res.status(400).json({ message: "Email liên hệ này đã được sử dụng!" });
+
+                // SỬA CHUẨN XÁC: Kiểm tra tồn tại thực tế của tên miền email bằng DNS MX Lookup
+                const isEmailDomainValid = await verifyEmailDomain(email);
+                if (!isEmailDomainValid) {
+                    return res.status(400).json({ message: "Địa chỉ Email không tồn tại thực tế hoặc tên miền không hợp lệ! Vui lòng kiểm tra lại." });
+                }
+
+                // Kiểm tra trùng tòa nhà
                 const buildingExist = await prisma.building.findUnique({ where: { code: buildingCode } });
                 if (buildingExist) return res.status(400).json({ message: "Mã tòa nhà (Building Code) đã tồn tại" });
+
+                const hashedPassword = await bcrypt.hash(password, 10);
 
                 // Dùng Transaction để tạo đồng thời Tòa nhà và User
                 const result = await prisma.$transaction(async (tx) => {
@@ -204,7 +266,8 @@ export const AuthController = {
                     });
 
                     const newUser = await tx.user.create({
-                        data: { username, password: hashedPassword, fullName, role: 'BUILDING_ADMIN' }
+                        // Lưu email của Admin vào DB
+                        data: { username, password: hashedPassword, fullName, email, role: 'BUILDING_ADMIN' }
                     });
 
                     // Cấp quyền quản lý nhà này cho user
@@ -214,6 +277,15 @@ export const AuthController = {
 
                     return { user: newUser, building: newBuilding };
                 });
+
+                // ==========================================================
+                // GỬI EMAIL CHỨA TÀI KHOẢN VÀ MẬT KHẨU GỐC CHO NGƯỜI QUẢN LÝ VỪA TẠO
+                // (Truyền password dạng gốc chưa băm để người dùng biết mật khẩu đăng nhập)
+                // ==========================================================
+                await import('../../config/mail.service.js').then(m =>
+                    m.sendCredentialsEmail(result.user.email, result.user.username, password, result.user.fullName, result.building.name)
+                );
+                // ==========================================================
 
                 return res.status(201).json({
                     message: "Khởi tạo Tòa nhà và cấp quyền BUILDING_ADMIN thành công!",

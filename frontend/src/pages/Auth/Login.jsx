@@ -25,6 +25,27 @@ const Login = () => {
     const { loginUser } = useContext(AuthContext);
     const navigate = useNavigate();
 
+    // State quản lý OTP
+    const [showOtpInput, setShowOtpInput] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [timer, setTimer] = useState(60);
+
+    // Bộ đếm ngược 60 giây
+    useEffect(() => {
+        let interval = null;
+        if (showOtpInput && timer > 0) {
+            interval = setInterval(() => {
+                setTimer(prev => prev - 1);
+            }, 1000);
+        } else if (timer === 0) {
+            setShowOtpInput(false);
+            setOtp('');
+            setError("Mã xác thực OTP đã hết hạn (60 giây). Vui lòng nhấn gửi lại mã mới!");
+            clearInterval(interval);
+        }
+        return () => clearInterval(interval);
+    }, [showOtpInput, timer]);
+
 
     // XỬ LÝ ĐĂNG NHẬP
     const handleLogin = async (e) => {
@@ -60,14 +81,39 @@ const Login = () => {
             return setError("Vui lòng nhập Mã tòa nhà bạn muốn quản lý!");
         }
 
+        // BƯỚC 1: NẾU CHƯA HIỂN THỊ Ô NHẬP OTP -> TIẾN HÀNH GỬI OTP TRƯỚC
+        if (!showOtpInput) {
+            setIsLoading(true);
+            try {
+                const { sendOtpApi } = await import('../../services/auth.service');
+                await sendOtpApi({ email: regForm.email });
+                toast.success("Mã xác thực OTP đã được gửi về Email của bạn!");
+                setShowOtpInput(true);
+                setTimer(60); // Đặt thời gian đếm ngược 60 giây
+            } catch (err) {
+                setError(err.message);
+                toast.error("Không thể gửi mã xác thực!");
+            } finally {
+                setIsLoading(false);
+            }
+            return;
+        }
+
+        // BƯỚC 2: NẾU ĐÃ CÓ Ô NHẬP OTP -> TIẾN HÀNH GỬI FORM ĐĂNG KÝ KÈM OTP
+        if (!otp || otp.length !== 6) {
+            return setError("Vui lòng nhập mã OTP gồm 6 chữ số!");
+        }
+
         setIsLoading(true);
         try {
-            await requestRegisterApi(regForm);
+            await requestRegisterApi({ ...regForm, otp });
             toast.success("Gửi yêu cầu thành công! Vui lòng kiểm tra Email chờ phê duyệt.", { duration: 5000 });
 
-            // Thành công thì quay lại trang login và xóa form
+            // Reset toàn bộ form
             setIsRegisterMode(false);
-            setRegForm({ username: '', password: '', confirm: '', fullName: '', email: '', buildingId: '' });
+            setShowOtpInput(false);
+            setOtp('');
+            setRegForm({ username: '', password: '', confirm: '', fullName: '', email: '', buildingCode: '' });
         } catch (err) {
             setError(err.message);
         } finally {
@@ -137,14 +183,15 @@ const Login = () => {
                                         <label className="text-xs font-bold text-slate-700">Họ và tên</label>
                                         <div className="relative">
                                             <BadgeCheck className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                                            <input type="text" required value={regForm.fullName} onChange={e => setRegForm({ ...regForm, fullName: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium" placeholder="Nguyễn Văn A" />
+                                            {/* SỬA: Thêm thuộc tính disabled={showOtpInput} khóa các ô nhập khi đang đếm ngược */}
+                                            <input type="text" required disabled={showOtpInput} value={regForm.fullName} onChange={e => setRegForm({ ...regForm, fullName: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium disabled:opacity-60 disabled:cursor-not-allowed" placeholder="Nguyễn Văn A" />
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-bold text-slate-700">Tên đăng nhập</label>
                                         <div className="relative">
                                             <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                                            <input type="text" required value={regForm.username} onChange={e => setRegForm({ ...regForm, username: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium" placeholder="Nhập username" />
+                                            <input type="text" required disabled={showOtpInput} value={regForm.username} onChange={e => setRegForm({ ...regForm, username: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium disabled:opacity-60 disabled:cursor-not-allowed" placeholder="Nhập username" />
                                         </div>
                                     </div>
                                 </div>
@@ -153,9 +200,31 @@ const Login = () => {
                                     <label className="text-xs font-bold text-slate-700">Email liên hệ (Để nhận xác nhận)</label>
                                     <div className="relative">
                                         <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                                        <input type="email" required value={regForm.email} onChange={e => setRegForm({ ...regForm, email: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium" placeholder="email@domain.com" />
+                                        <input type="email" required disabled={showOtpInput} value={regForm.email} onChange={e => setRegForm({ ...regForm, email: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium disabled:opacity-60 disabled:cursor-not-allowed" placeholder="email@domain.com" />
                                     </div>
                                 </div>
+
+                                {/* SỬA MỚI: HIỂN THỊ Ô NHẬP OTP KHÓA KHÉP KÍN KÈM COUNTDOWN TIMER */}
+                                {showOtpInput && (
+                                    <div className="space-y-1.5 p-4 bg-emerald-50/40 border border-emerald-200/50 rounded-2xl animate-in fade-in zoom-in duration-200">
+                                        <label className="text-xs font-bold text-slate-700 flex justify-between items-center">
+                                            <span>Nhập mã xác thực OTP (6 số) gửi về email</span>
+                                            <span className="text-red-500 font-mono font-bold text-sm">Còn lại: {timer}s</span>
+                                        </label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-3 h-4 w-4 text-emerald-500" />
+                                            <input
+                                                type="text"
+                                                required
+                                                maxLength={6}
+                                                value={otp}
+                                                onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, ''))} // Chỉ cho phép nhập số
+                                                className="w-full pl-9 pr-3 py-2.5 bg-white border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm outline-none font-black text-center tracking-[1em]"
+                                                placeholder="******"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-slate-700">Mã Tòa nhà (Building Code)</label>
@@ -164,9 +233,10 @@ const Login = () => {
                                         <input
                                             type="text"
                                             required
+                                            disabled={showOtpInput}
                                             value={regForm.buildingCode}
                                             onChange={e => setRegForm({ ...regForm, buildingCode: e.target.value.toUpperCase() })}
-                                            className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium"
+                                            className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                                             placeholder="Nhập mã định danh (Ví dụ: L81_SAIGON)"
                                         />
                                     </div>
@@ -177,24 +247,31 @@ const Login = () => {
                                         <label className="text-xs font-bold text-slate-700">Mật khẩu</label>
                                         <div className="relative">
                                             <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                                            <input type="password" required value={regForm.password} onChange={e => setRegForm({ ...regForm, password: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium" placeholder="••••••••" />
+                                            <input type="password" required disabled={showOtpInput} value={regForm.password} onChange={e => setRegForm({ ...regForm, password: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium disabled:opacity-60 disabled:cursor-not-allowed" placeholder="••••••••" />
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-bold text-slate-700">Nhập lại mật khẩu</label>
                                         <div className="relative">
                                             <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                                            <input type="password" required value={regForm.confirm} onChange={e => setRegForm({ ...regForm, confirm: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium" placeholder="••••••••" />
+                                            <input type="password" required disabled={showOtpInput} value={regForm.confirm} onChange={e => setRegForm({ ...regForm, confirm: e.target.value })} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm outline-none font-medium disabled:opacity-60 disabled:cursor-not-allowed" placeholder="••••••••" />
                                         </div>
                                     </div>
                                 </div>
 
+                                {/* SỬA: Đổi nút bấm sang luồng gửi OTP động */}
                                 <button type="submit" disabled={isLoading} className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/30 mt-6 disabled:opacity-70">
-                                    {isLoading ? <><Loader2 className="w-5 h-5 animate-spin" /> Đang gửi...</> : 'GỬI YÊU CẦU ĐĂNG KÝ'}
+                                    {isLoading ? (
+                                        <><Loader2 className="w-5 h-5 animate-spin" /> Đang gửi...</>
+                                    ) : showOtpInput ? (
+                                        'XÁC NHẬN & HOÀN TẤT ĐĂNG KÝ'
+                                    ) : (
+                                        'NHẬN MÃ OTP QUA EMAIL'
+                                    )}
                                 </button>
 
                                 <p className="text-center text-sm text-slate-500 mt-4">
-                                    Đã có tài khoản? <span onClick={() => { setIsRegisterMode(false); setError(''); }} className="font-bold text-blue-600 cursor-pointer hover:underline">Đăng nhập ngay</span>
+                                    Đã có tài khoản? <span onClick={() => { setIsRegisterMode(false); setError(''); setShowOtpInput(false); }} className="font-bold text-blue-600 cursor-pointer hover:underline">Đăng nhập ngay</span>
                                 </p>
                             </form>
                         ) : (

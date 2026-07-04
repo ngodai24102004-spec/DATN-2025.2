@@ -1,5 +1,14 @@
 // src/services/auth.service.js
-import api from './api'; // 1. Thay thế import axios bằng api instance dùng chung
+import api from './api'; // 
+
+export const sendOtpApi = async (emailData) => {
+    try {
+        const response = await api.post('/auth/send-otp', emailData);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || "Lỗi khi gửi mã xác thực");
+    }
+};
 
 // API Gửi yêu cầu đăng ký tài khoản mới (Không cần truyền token thủ công nữa)
 export const requestRegisterApi = async (data) => {
