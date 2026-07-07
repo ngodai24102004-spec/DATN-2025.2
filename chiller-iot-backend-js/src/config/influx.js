@@ -47,7 +47,7 @@ export const InfluxService = {
             // Bạn có thể dùng flush() nếu muốn đẩy dữ liệu đi ngay lập tức
             writeApi.flush();
 
-            console.log(`📊 InfluxDB: Đã ghi nhận dữ liệu cho ${measurement}`);
+            console.log(`InfluxDB: Đã ghi nhận dữ liệu cho ${measurement}`);
         } catch (error) {
             console.error('❌ Lỗi khi ghi dữ liệu vào InfluxDB:', error);
         }

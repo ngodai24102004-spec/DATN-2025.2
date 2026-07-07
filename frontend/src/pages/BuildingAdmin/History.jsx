@@ -30,8 +30,6 @@ export default function HistoryPage() {
     const [range, setRange] = useState('24h');
     const [searchTerm, setSearchTerm] = useState('');
     const [noData, setNoData] = useState(false);
-
-    // --- STATE MỚI: Lưu trữ Tab (thông số) đang được chọn ---
     const [selectedField, setSelectedField] = useState(null);
 
     const measurementMap = {
@@ -233,7 +231,7 @@ export default function HistoryPage() {
 
     // Hàm lấy khoảng cách phút giữa các điểm dữ liệu dựa theo range truy xuất
     const getIntervalMinutes = (rangeVal) => {
-        if (rangeVal === '1h') return 1;    // 1h -> mỗi điểm cách nhau 1 phút [2]
+        if (rangeVal === '2h') return 2;    // 2h -> mỗi điểm cách nhau 2 phút [2]
         if (rangeVal === '6h') return 5;    // 6h -> mỗi điểm cách nhau 5 phút [2]
         if (rangeVal === '24h') return 15;  // 24h -> mỗi điểm cách nhau 15 phút [2]
         if (rangeVal === '7d') return 120;  // 7d -> mỗi điểm cách nhau 120 phút (2 tiếng) [2]
@@ -281,7 +279,7 @@ export default function HistoryPage() {
                             value={range}
                             onChange={(e) => setRange(e.target.value)}
                         >
-                            <option value="1h" className="bg-[#0d1527]">1 Giờ qua</option>
+                            <option value="2h" className="bg-[#0d1527]">2 Giờ qua</option>
                             <option value="6h" className="bg-[#0d1527]">6 Giờ qua</option>
                             <option value="24h" className="bg-[#0d1527]">24 Giờ qua</option>
                             <option value="7d" className="bg-[#0d1527]">7 Ngày qua</option>
@@ -487,7 +485,7 @@ export default function HistoryPage() {
                                     <AlertTriangle size={60} className="mb-4 text-amber-500 opacity-80" />
                                     <p className="font-bold uppercase tracking-widest text-xs text-amber-400">
                                         Không có dữ liệu cho thiết bị này trong {
-                                            range === '1h' ? '1 giờ' : range === '6h' ? '6 giờ' : range === '24h' ? '24 giờ' : '7 ngày'
+                                            range === '2h' ? '2 giờ' : range === '6h' ? '6 giờ' : range === '24h' ? '24 giờ' : '7 ngày'
                                         } qua
                                     </p>
                                 </>

@@ -34,5 +34,5 @@ mqttClient.on('message', (topic, message) => {
 
 const PORT = 3000;
 httpServer.listen(PORT, () => {
-    console.log(`🚀 Server & Socket đang chạy tại http://localhost:${PORT}`);
+    console.log(`Server & Socket đang chạy tại http://localhost:${PORT}`);
 });

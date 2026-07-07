@@ -7,16 +7,25 @@ import dns from 'dns';
 import { promisify } from 'util';
 
 const resolveMx = promisify(dns.resolveMx);
-const otpCache = new Map(); // Bộ nhớ tạm lưu trữ email -> { otp, expiresAt }
+const otpCache = new Map(); // Bộ nhớ tạm lưu trữ email
 
 const verifyEmailDomain = async (email) => {
-    const domain = email.split('@')[1];
+    if (!email) return false;
+
+    const cleanEmail = email.trim().toLowerCase();
+    const domain = cleanEmail.split('@')[1];
+
     if (!domain) return false;
+
+    // if (domain === 'gmail.com' || domain === 'sis.hust.edu.vn') {
+    //     return true;
+    // }
+
     try {
         const addresses = await resolveMx(domain);
         return addresses && addresses.length > 0;
     } catch (err) {
-        return false; // Tên miền không tồn tại hoặc không cấu hình nhận mail
+        return false;
     }
 };
 
@@ -76,7 +85,7 @@ export const AuthController = {
         }
     },
 
-    // 1. API Gửi yêu cầu đăng ký (Dành cho trang Login)
+    // API Gửi yêu cầu đăng ký (Dành cho trang Login)
     requestRegistration: async (req, res) => {
         try {
             const { username, password, fullName, email, buildingCode, otp } = req.body;
@@ -122,7 +131,7 @@ export const AuthController = {
     },
 
 
-    // 2. API Duyệt hoặc Từ chối (Dành cho Super Admin)
+    // API Duyệt hoặc Từ chối (Dành cho Super Admin)
     handleApproval: async (req, res) => {
         try {
             if (req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ message: "Không có quyền" });
@@ -175,7 +184,7 @@ export const AuthController = {
         }
     },
 
-    //3. API Lấy danh sách tài khoản đang chờ duyệt (Dành cho Super Admin)
+    // API Lấy danh sách tài khoản đang chờ duyệt (Dành cho Super Admin)
     getPendingUsers: async (req, res) => {
         try {
             if (req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ message: "Không có quyền" });
@@ -203,7 +212,7 @@ export const AuthController = {
     },
 
 
-    // 1.API: Đăng ký 
+    // API: Đăng ký 
     register: async (req, res) => {
         try {
             const {
@@ -305,7 +314,7 @@ export const AuthController = {
     },
 
 
-    // 2. Đăng nhập (Login)
+    // Đăng nhập (Login)
     login: async (req, res) => {
         try {
             const { username, password } = req.body;
@@ -342,7 +351,7 @@ export const AuthController = {
             // Chỉ trả về Access Token và thông tin User trong JSON phản hồi
             res.json({
                 accessToken,
-                user: { fullName: user.fullName, role: user.role, building: buildingInfo }
+                user: { id: user.id, fullName: user.fullName, role: user.role, building: buildingInfo }
             });
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -429,7 +438,7 @@ export const AuthController = {
         }
     },
 
-    // 3. API Lấy thông tin cá nhân
+    // API Lấy thông tin cá nhân
     getProfile: async (req, res) => {
         try {
             // Kiểm tra xem middleware verifyToken đã gán user vào req chưa
@@ -467,7 +476,7 @@ export const AuthController = {
         }
     },
 
-    // 4. API Cập nhật tên hiển thị
+    // API Cập nhật tên hiển thị
     updateProfileName: async (req, res) => {
         try {
             const { fullName } = req.body;
@@ -530,7 +539,7 @@ export const AuthController = {
         }
     },
 
-    // 5. Lấy danh sách Building Admin (Dành cho Super Admin)
+    // Lấy danh sách Building Admin (Dành cho Super Admin)
     getBuildingAdmins: async (req, res) => {
         try {
             // Chỉ Super Admin mới được xem danh sách này
@@ -566,7 +575,7 @@ export const AuthController = {
         }
     },
 
-    // 6. Xóa tài khoản Building Admin (Dành cho Super Admin)
+    // Xóa tài khoản Building Admin (Dành cho Super Admin)
     deleteUser: async (req, res) => {
         try {
             // 1. Bảo mật: Chỉ Super Admin mới có quyền xóa
@@ -604,7 +613,7 @@ export const AuthController = {
         }
     },
 
-    // 7. Cập nhật thông tin tài khoản (Dành cho Super Admin)
+    // Cập nhật thông tin tài khoản (Dành cho Super Admin)
     updateUserByAdmin: async (req, res) => {
         try {
             // 1. Chỉ Super Admin mới có quyền
@@ -645,7 +654,7 @@ export const AuthController = {
         }
     },
 
-    // 8. API Thêm Quản trị viên vào Tòa nhà đã có sẵn (Dành cho Super Admin)
+    // API Thêm Quản trị viên vào Tòa nhà đã có sẵn (Dành cho Super Admin)
     addManagerToBuilding: async (req, res) => {
         try {
             // 1. Kiểm tra dữ liệu Frontend gửi lên có bị thiếu không
@@ -697,7 +706,6 @@ export const AuthController = {
         } catch (error) {
             console.error("❌ Lỗi thêm quản lý:", error);
 
-            // Bắt lỗi Prisma (Ví dụ lỗi khóa ngoại)
             if (error.code) {
                 return res.status(400).json({ message: `Lỗi CSDL Prisma mã: ${error.code}` });
             }

@@ -7,7 +7,7 @@ export const NotificationContext = createContext();
 export const NotificationProvider = ({ children }) => {
     const { user } = useContext(AuthContext);
     const [notifications, setNotifications] = useState([]);
-    const [socket, setSocket] = useState(null); // Lưu trữ kết nối socket để chia sẻ
+    const [socket, setSocket] = useState(null);
 
     // ==========================================
     // 1. QUẢN LÝ KẾT NỐI SOCKET TỔNG CHO TOÀN APP
@@ -37,7 +37,6 @@ export const NotificationProvider = ({ children }) => {
 
             setSocket(newSocket);
 
-            // Tự động ngắt kết nối khi đăng xuất (user bị null)
             return () => {
                 newSocket.disconnect();
                 console.log("🌐 [Global Socket] Disconnected!");

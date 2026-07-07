@@ -105,4 +105,5 @@ model Subsystem {
   devices     Device[] 
 
   @@map("subsystems")
+  @@unique([buildingId, code])
 }

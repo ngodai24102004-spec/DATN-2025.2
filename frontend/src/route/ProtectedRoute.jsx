@@ -16,7 +16,7 @@ export default function ProtectedRoute({ children, requiredRole }) {
         return <Navigate to="/login" replace />;
     }
 
-    // TẦNG BẢO VỆ 2: SAI QUYỀN HẠN (RBAC) -> Trục xuất về đúng "ĐỊA BÀN" của mình
+    // TẦNG BẢO VỆ 2: SAI QUYỀN HẠN 
     if (requiredRole && user.role !== requiredRole) {
         // Nếu là Sếp mà đi lạc vào trang nhân viên -> Đẩy về Dashboard Sếp
         if (user.role === 'SUPER_ADMIN') {

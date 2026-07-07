@@ -5,7 +5,7 @@ let io;
 export const initSocket = (server) => {
     io = new Server(server, {
         cors: {
-            origin: "*", // Trong thực tế nên để domain của frontend
+            origin: "*",
             methods: ["GET", "POST"]
         }
     });

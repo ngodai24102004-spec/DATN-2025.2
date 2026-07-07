@@ -674,7 +674,7 @@ if (typeof document !== 'undefined' && !document.getElementById('cyber-header-st
   document.head.appendChild(el);
 }
 
-const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀO ĐÂY
+const Header = ({ onToggleSidebar }) => {
   const { user, logoutUser } = useContext(AuthContext);
   const { notifications, clearAll, socket } = useContext(NotificationContext);
 
@@ -731,7 +731,7 @@ const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀ
     navigate('/login');           // Điều hướng mượt mà về trang Login
   };
 
-  // --- BỔ SUNG: LOGIC LẤY DANH SÁCH DUYỆT TÀI KHOẢN KHI MỚI VÀO ---
+  // ---  LOGIC LẤY DANH SÁCH DUYỆT TÀI KHOẢN KHI MỚI VÀO ---
   useEffect(() => {
     if (user?.role === 'SUPER_ADMIN') {
       getPendingUsersApi()
@@ -740,7 +740,7 @@ const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀ
     }
   }, [user?.role]);
 
-  // --- BỔ SUNG: LẮNG NGHE SOCKET KHI CÓ NGƯỜI ĐĂNG KÝ MỚI ---
+  // ---  LẮNG NGHE SOCKET KHI CÓ NGƯỜI ĐĂNG KÝ MỚI ---
   useEffect(() => {
     if (!socket || user?.role !== 'SUPER_ADMIN') return;
 
@@ -780,7 +780,7 @@ const Header = ({ onToggleSidebar }) => { // ĐÃ THÊM PROP onToggleSidebar VÀ
   };
 
   const activeFaultsCount = notifications.length;
-  // --- BỔ SUNG: TỔNG SỐ THÔNG BÁO CHO CHUÔNG ---
+  // ---  TỔNG SỐ THÔNG BÁO CHO CHUÔNG ---
   const totalNotiCount = activeFaultsCount + pendingUsers.length;
 
   useEffect(() => {

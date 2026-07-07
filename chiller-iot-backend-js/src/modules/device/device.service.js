@@ -73,6 +73,7 @@ export const DeviceService = {
             if (!deviceInfo) return;
 
             const io = await import('../../config/socket.js').then(m => m.getIo());
+            io.to(`building-${deviceInfo.buildingId}`).emit("device-free", { code: deviceCode });
 
             if (isMatched) {
                 console.log(`✅ [FEEDBACK] Lệnh điều khiển ${deviceCode} THÀNH CÔNG!`);
@@ -89,7 +90,7 @@ export const DeviceService = {
 
     // 1. THIẾT BỊ CHILLER
     handleChillerData: async (chillerList) => {
-        for (const item of chillerList) {
+        await Promise.all(chillerList.map(async (item) => {
             try {
                 // Lấy thêm thông tin người quản lý tòa nhà
                 const deviceInDb = await prisma.device.findUnique({
@@ -102,7 +103,7 @@ export const DeviceService = {
                 });
 
                 if (!deviceInDb) {
-                    continue;
+                    return;
                 }
 
                 await prisma.device.update({
@@ -120,7 +121,7 @@ export const DeviceService = {
                 };
                 InfluxService.writeTelemetry("chiller_status", tags, fields);
 
-                // --- SỬA: TẠO GÓI DỮ LIỆU ĐẦY ĐỦ ĐỂ GỬI SOCKET ---
+                // --- TẠO GÓI DỮ LIỆU ĐẦY ĐỦ ĐỂ GỬI SOCKET ---
                 const managerName = deviceInDb.building.managers[0]?.user?.fullName || "Chưa bổ nhiệm";
                 const socketPayload = {
                     code: item.code,
@@ -143,12 +144,12 @@ export const DeviceService = {
             } catch (err) {
                 console.error(`❌ Lỗi xử lý Chiller ${item.code}:`, err.message);
             }
-        }
+        }));
     },
 
     // 2. THIẾT BỊ ĐƯỜNG ỐNG (PIPE)
     handlePipeData: async (pipeList) => {
-        for (const item of pipeList) {
+        await Promise.all(pipeList.map(async (item) => {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
@@ -159,7 +160,7 @@ export const DeviceService = {
                     }
                 });
 
-                if (!deviceInDb) continue;
+                if (!deviceInDb) return;
 
                 await prisma.device.update({
                     where: { code: item.code },
@@ -196,12 +197,12 @@ export const DeviceService = {
             } catch (err) {
                 console.error(`❌ Lỗi xử lý Pipe ${item?.code}:`, err.message);
             }
-        }
+        }));
     },
 
     // 3. THIẾT BỊ VAN (VALVE)
     handleValveData: async (valveList) => {
-        for (const item of valveList) {
+        await Promise.all(valveList.map(async (item) => {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
@@ -211,7 +212,7 @@ export const DeviceService = {
                         }
                     }
                 });
-                if (!deviceInDb) continue;
+                if (!deviceInDb) return;
 
                 await prisma.device.update({
                     where: { code: item.code },
@@ -246,12 +247,12 @@ export const DeviceService = {
             } catch (err) {
                 console.error(`❌ Lỗi xử lý Valve:`, err.message);
             }
-        }
+        }));
     },
 
     // 4. BƠM NƯỚC LẠNH (COLDPUMP)
     handleColdPumpData: async (pumpList) => {
-        for (const item of pumpList) {
+        await Promise.all(pumpList.map(async (item) => {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
@@ -261,7 +262,7 @@ export const DeviceService = {
                         }
                     }
                 });
-                if (!deviceInDb) continue;
+                if (!deviceInDb) return;
 
                 await prisma.device.update({
                     where: { code: item.code },
@@ -302,12 +303,12 @@ export const DeviceService = {
             } catch (err) {
                 console.error(`❌ Lỗi xử lý ColdPump:`, err.message);
             }
-        }
+        }));
     },
 
     // 5. BƠM GIẢI NHIỆT (COOLINGPUMP)
     handleCoolingPumpData: async (pumpList) => {
-        for (const item of pumpList) {
+        await Promise.all(pumpList.map(async (item) => {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
@@ -317,7 +318,7 @@ export const DeviceService = {
                         }
                     }
                 });
-                if (!deviceInDb) continue;
+                if (!deviceInDb) return;
 
                 await prisma.device.update({
                     where: { code: item.code },
@@ -358,12 +359,12 @@ export const DeviceService = {
             } catch (err) {
                 console.error(`❌ Lỗi xử lý CoolingPump:`, err.message);
             }
-        }
+        }));
     },
 
     // 6. THÁP GIẢI NHIỆT (COOLINGTOWER)
     handleCoolingTowerData: async (towerList) => {
-        for (const item of towerList) {
+        await Promise.all(towerList.map(async (item) => {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
@@ -373,7 +374,7 @@ export const DeviceService = {
                         }
                     }
                 });
-                if (!deviceInDb) continue;
+                if (!deviceInDb) return;
 
                 await prisma.device.update({
                     where: { code: item.code },
@@ -413,7 +414,7 @@ export const DeviceService = {
             } catch (err) {
                 console.error(`❌ Lỗi xử lý CoolingTower:`, err.message);
             }
-        }
+        }));
     },
     // ==========================================
     // CÁC HÀM XỬ LÝ PHÂN HỆ MỚI ĐÃ ĐƯỢC CẬP NHẬT FULL CHI TIẾT
@@ -421,13 +422,13 @@ export const DeviceService = {
 
     // 7. XỬ LÝ AHU (Thuộc nhóm Chiller)
     handleAhuData: async (ahuList) => {
-        for (const item of ahuList) {
+        await Promise.all(ahuList.map(async (item) => {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
                     include: { building: { include: { managers: { include: { user: true } } } } }
                 });
-                if (!deviceInDb) continue;
+                if (!deviceInDb) return;
 
                 await prisma.device.update({
                     where: { code: item.code },
@@ -462,18 +463,18 @@ export const DeviceService = {
                 io.to(`building-${deviceInDb.buildingId}`).emit("device-update", payload);
                 io.to("super_admin_room").emit("device-update", payload);
             } catch (err) { console.error(`❌ Lỗi xử lý AHU:`, err.message); }
-        }
+        }));
     },
 
     // 8. XỬ LÝ ĐÈN CHIẾU SÁNG (Light & Dimmer)
     handleLightData: async (lightList) => {
-        for (const item of lightList) {
+        await Promise.all(lightList.map(async (item) => {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
                     include: { building: { include: { managers: { include: { user: true } } } } }
                 });
-                if (!deviceInDb) continue;
+                if (!deviceInDb) return;
 
                 await prisma.device.update({
                     where: { code: item.code },
@@ -488,7 +489,7 @@ export const DeviceService = {
                 };
                 InfluxService.writeTelemetry("lighting_data", { code: item.code, building_code: deviceInDb.building.code }, fields);
 
-                // SỬA: Bổ sung Full Payload
+
                 const managerName = deviceInDb.building.managers[0]?.user?.fullName || "Chưa bổ nhiệm";
                 const payload = {
                     code: item.code,
@@ -505,18 +506,18 @@ export const DeviceService = {
                 io.to(`building-${deviceInDb.buildingId}`).emit("device-update", payload);
                 io.to("super_admin_room").emit("device-update", payload);
             } catch (err) { console.error(`❌ Lỗi xử lý Light:`, err.message); }
-        }
+        }));
     },
 
     // 9. XỬ LÝ BƠM SINH HOẠT
     handleDomesticPumpData: async (pumpList) => {
-        for (const item of pumpList) {
+        await Promise.all(pumpList.map(async (item) => {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
                     include: { building: { include: { managers: { include: { user: true } } } } }
                 });
-                if (!deviceInDb) continue;
+                if (!deviceInDb) return;
 
                 await prisma.device.update({
                     where: { code: item.code },
@@ -551,18 +552,18 @@ export const DeviceService = {
                 io.to(`building-${deviceInDb.buildingId}`).emit("device-update", payload);
                 io.to("super_admin_room").emit("device-update", payload);
             } catch (err) { console.error(`❌ Lỗi xử lý Domestic Pump:`, err.message); }
-        }
+        }));
     },
 
     // 10. XỬ LÝ QUẠT THÔNG GIÓ
     handleFanData: async (fanList) => {
-        for (const item of fanList) {
+        await Promise.all(fanList.map(async (item) => {
             try {
                 const deviceInDb = await prisma.device.findUnique({
                     where: { code: item.code },
                     include: { building: { include: { managers: { include: { user: true } } } } }
                 });
-                if (!deviceInDb) continue;
+                if (!deviceInDb) return;
 
                 await prisma.device.update({
                     where: { code: item.code },
@@ -599,6 +600,6 @@ export const DeviceService = {
                 io.to(`building-${deviceInDb.buildingId}`).emit("device-update", payload);
                 io.to("super_admin_room").emit("device-update", payload);
             } catch (err) { console.error(`❌ Lỗi xử lý Fan:`, err.message); }
-        }
+        }));
     }
 };

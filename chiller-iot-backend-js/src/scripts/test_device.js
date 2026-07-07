@@ -57,7 +57,7 @@ let deviceMemory = {
     "COOLINGTOWER-001": { code: "COOLINGTOWER-001", power: 1, "auto-mode": 1, fault: 0 },
 
     // NHÓM AHU (RẢI Ở CÁC TẦNG NỔI)
-    "AHU-T1": { code: "AHU-T1", power: 1, "auto-mode": 1, fault: 0, temperature: 22.5, frequency: 45.0 },
+    "AHU-T1": { code: "AHU-T1", power: 0, "auto-mode": 1, fault: 0, temperature: 22.5, frequency: 45.0 },
     "AHU-T2": { code: "AHU-T2", power: 1, "auto-mode": 1, fault: 0, temperature: 23.1, frequency: 46.5 },
     "AHU-T3": { code: "AHU-T3", power: 0, "auto-mode": 1, fault: 1, temperature: 25.0, frequency: 0 },
     "AHU-T4": { code: "AHU-T4", power: 1, "auto-mode": 1, fault: 0, temperature: 22.0, frequency: 48.0 },
@@ -141,7 +141,7 @@ client.on('connect', () => {
         client.publish(FAN_TOPIC, JSON.stringify([deviceMemory["FAN_T1"], deviceMemory["FAN_T2"]]));
         console.log(`💧 [${now}] PUMP & FAN    | Gửi 2 Bơm sinh hoạt & 2 Quạt thông gió\n`);
 
-    }, 20000);
+    }, 5000);
 });
 
 // ==========================================

@@ -1,7 +1,8 @@
 import prisma from '../../config/prisma.js';
+import { getIo } from '../../config/socket.js';
 
 export const DeviceController = {
-    // 1. API: Thêm thiết bị mới vào tòa nhà
+    // API: Thêm thiết bị mới vào tòa nhà
     addDevice: async (req, res) => {
         try {
             const { buildingId, subsystemId, code, type, name, location } = req.body;
@@ -57,7 +58,7 @@ export const DeviceController = {
         }
     },
 
-    // 2. API: Lấy danh sách thiết bị có phân quyền
+    // API: Lấy danh sách thiết bị có phân quyền
     getDevices: async (req, res) => {
         try {
             // Thông tin user lấy từ Token sau khi qua Middleware verifyToken
@@ -100,7 +101,7 @@ export const DeviceController = {
         }
     },
 
-    // 3. Xóa thiết bị 
+    // Xóa thiết bị 
     deleteDevice: async (req, res) => {
         try {
             const deviceId = parseInt(req.params.id);
@@ -132,7 +133,7 @@ export const DeviceController = {
         }
     },
 
-    // 4. XỬ LÝ LỆNH ĐIỀU KHIỂN
+    // XỬ LÝ LỆNH ĐIỀU KHIỂN
     executeControl: async (req, res) => {
         try {
             const { deviceId, code, type, command } = req.body;
@@ -148,6 +149,15 @@ export const DeviceController = {
             if (user.role === 'BUILDING_ADMIN' && device.buildingId !== user.buildingId) {
                 return res.status(403).json({ message: "Không có quyền điều khiển thiết bị này" });
             }
+
+            import('../../config/socket.js').then(m => {
+                const io = m.getIo();
+                io.to(`building-${device.buildingId}`).emit("device-busy", {
+                    code: code.toUpperCase(),
+                    operatorName: user.fullName || user.name || user.username || 'Quản trị viên',
+                    userId: user.id
+                });
+            });
 
             // 2. Khởi tạo Payload và Topic
             let topicSuffix = "";
@@ -236,7 +246,7 @@ export const DeviceController = {
             });
 
             // ===============================================
-            // 6. BỘ ĐẾM NGƯỢC 1 GIÂY (TIMEOUT CHECKER)
+            // 6. BỘ ĐẾM NGƯỢC 2 GIÂY (TIMEOUT CHECKER)
             // ===============================================
             setTimeout(async () => {
                 try {
@@ -250,21 +260,17 @@ export const DeviceController = {
                             data: { status: 'TIMEOUT' }
                         });
 
-                        console.log(`⏰ [TIMEOUT] Thiết bị ${code} không phản hồi sau 1 giây!`);
-
                         import('../../config/socket.js').then(m => {
                             const io = m.getIo();
+                            io.to(`building-${device.buildingId}`).emit("device-free", { code: code });
                             io.to(`building-${device.buildingId}`).emit("command-timeout", { name: device.name || code });
-                            io.to("super_admin_room").emit("command-timeout", { name: device.name || code });
                         });
                     }
                 } catch (err) {
                     console.error("Lỗi trong quá trình kiểm tra Timeout:", err.message);
                 }
-            }, 1000);
+            }, 2000);
             // ===============================================
-
-            console.log(`🕹️ [CONTROL] User ${user.id} gửi lệnh tới ${code}:`, payload);
 
             res.status(200).json({
                 message: "Đã gửi lệnh điều khiển thành công!",

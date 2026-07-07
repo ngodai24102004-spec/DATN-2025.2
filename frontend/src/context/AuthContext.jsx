@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
     const loginUser = (userData, accessToken) => {
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('token', accessToken); // Chỉ cần lưu Access Token ở client
+        localStorage.setItem('token', accessToken);
     };
 
     const logoutUser = async () => {

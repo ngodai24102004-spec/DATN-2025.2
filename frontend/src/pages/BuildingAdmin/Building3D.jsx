@@ -289,7 +289,7 @@ function DeviceMarker({ device, position, onClick }) {
                     <Icon size={16} color="white" />
                 </div>
                 <div className="mt-1 text-[9px] font-black tracking-widest text-center px-2 py-0.5 rounded bg-black/80 text-white backdrop-blur-md border border-white/20 select-none whitespace-nowrap">
-                    {device.type}
+                    {device.code}
                 </div>
             </Html>
         </group>
@@ -343,47 +343,6 @@ export default function Building3D({ devices = [] }) {
         }
     }, [devices]);
 
-    // ── BẢNG GÁN TẦNG CỐ ĐỊNH THEO CODE THIẾT BỊ ────────────────────────
-    // Thay đổi ở đây để điều chỉnh thiết bị nào ở tầng nào.
-    // assignedFloor: 0 = Tầng hầm, 1-4 = Tầng nổi, 'ROOF' = Tầng mái/thượng
-    // Mỗi thiết bị có tọa độ [x, z] riêng để dàn đều trong không gian tầng.
-    // Tầng hầm rộng nên chia 2 hàng Z: hàng trước (z=3) và hàng sau (z=-2).
-    // Tầng nổi khoảng cách X = 5 đơn vị để icon không chồng nhau.
-    const FLOOR_MAP = {
-        // ── TẦNG HẦM (B1): 7 thiết bị – chia 2 hàng ──
-        //   Hàng trước (z= 3): Chiller, ColdPump, CoolingPump, CoolingTower
-        //   Hàng sau  (z=-2): Valve, Pipe, Pump_01
-        'chiller-001': { floor: 0, x: -7, z: 3 },
-        'COLDPUMP-001': { floor: 0, x: -2, z: 3 },
-        'COOLINGPUMP-001': { floor: 0, x: 3, z: 3 },
-        'COOLINGTOWER-001': { floor: 0, x: 8, z: 3 },
-        'VALVE-001': { floor: 0, x: -5, z: -2 },
-        'PIPE-001': { floor: 0, x: 0, z: -2 },
-        'PUMP_01': { floor: 0, x: 5, z: -2 },
-
-        // ── TẦNG 1: 4 thiết bị – 1 hàng, X cách nhau 5 đơn vị ──
-        'AHU-T1': { floor: 1, x: -7, z: 0 },
-        'FAN_T1': { floor: 1, x: -2, z: 0 },
-        'DIMMER_SANH': { floor: 1, x: 3, z: 0 },
-        'LIGHT_T1': { floor: 1, x: 8, z: 0 },
-
-        // ── TẦNG 2: 4 thiết bị ──
-        'AHU-T2': { floor: 2, x: -7, z: 0 },
-        'FAN_T2': { floor: 2, x: -2, z: 0 },
-        'DIMMER_HOP': { floor: 2, x: 3, z: 0 },
-        'LIGHT_T2': { floor: 2, x: 8, z: 0 },
-
-        // ── TẦNG 3: 2 thiết bị ──
-        'AHU-T3': { floor: 3, x: -5, z: 0 },
-        'LIGHT_T3': { floor: 3, x: 0, z: 0 },
-
-        // ── TẦNG 4: 2 thiết bị ──
-        'AHU-T4': { floor: 4, x: -5, z: 0 },
-        'LIGHT_T4': { floor: 4, x: 0, z: 0 },
-
-        // ── TẦNG MÁI: Bơm sinh hoạt 02 ──
-        'PUMP_02': { floor: 'ROOF', x: 0, z: 0 },
-    };
 
     const mappedDevices = useMemo(() => {
         let count = { TOWER: 0, CPUMP: 0, CHILLER: 0, CHWPUMP: 0, VALVE: 0, OTHER: 0 };
